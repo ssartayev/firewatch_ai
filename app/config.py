@@ -1,11 +1,11 @@
 """
-Загрузка конфигурации FireWatch AI.
+FireWatch AI configuration loading.
 
-Источники:
-  - .env         — секреты (токен Telegram, chat_id). Через python-dotenv.
-  - config.yaml  — всё остальное (источник видео, модели, зоны, правила).
+Sources:
+  - .env         — secrets (Telegram token, chat_id), via python-dotenv.
+  - config.yaml  — everything else (video source, models, zones, rules).
 
-Секреты НИКОГДА не хардкодятся и не пишутся в config.yaml.
+Secrets are NEVER hardcoded and never written to config.yaml.
 """
 from __future__ import annotations
 
@@ -17,23 +17,23 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-# Корень проекта = папка firewatch/ (на уровень выше app/)
+# Project root = the firewatch/ folder (one level above app/)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Подхватываем .env один раз при импорте
+# Load .env once at import time
 load_dotenv(BASE_DIR / ".env")
 
 
 # ---------------------------------------------------------------------------
-# Датаклассы конфигурации
+# Configuration dataclasses
 # ---------------------------------------------------------------------------
 @dataclass
 class ModelCfg:
-    """Настройки одного детектора."""
+    """Settings for a single detector."""
     name: str
-    weights: str                       # путь к .pt или спец-значение "mock"
+    weights: str                       # path to .pt weights, or the special value "mock"
     enabled: bool = True
-    classes: dict[int, str] = field(default_factory=dict)  # индекс -> каноничное имя
+    classes: dict[int, str] = field(default_factory=dict)  # class index -> canonical name
 
     @property
     def is_mock(self) -> bool:
@@ -51,7 +51,7 @@ class DetectionCfg:
 @dataclass
 class ZoneCfg:
     id: str
-    polygon: list[list[float]]         # нормализованные точки [[x,y], ...], x,y в 0..1
+    polygon: list[list[float]]         # normalised points [[x,y], ...], x,y in 0..1
 
 
 @dataclass
@@ -69,10 +69,10 @@ class Config:
     detection: DetectionCfg
     zones: list[ZoneCfg]
     alerts: AlertsCfg
-    raw: dict[str, Any]                # исходный словарь yaml (для сохранения зон обратно)
+    raw: dict[str, Any]                # raw yaml dict (used to write zones back)
     config_path: Path
 
-    # --- секреты из окружения ---
+    # --- secrets from the environment ---
     @property
     def telegram_token(self) -> str:
         return os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
@@ -83,21 +83,21 @@ class Config:
 
     @property
     def telegram_ready(self) -> bool:
-        """Telegram действительно можно использовать?"""
+        """Is Telegram actually usable?"""
         return self.alerts.telegram_enabled and bool(self.telegram_token) and bool(self.telegram_chat_id)
 
-    # --- удобные абсолютные пути ---
+    # --- convenience absolute paths ---
     def path(self, rel: str) -> Path:
-        """Абсолютный путь относительно корня проекта."""
+        """Absolute path resolved against the project root."""
         p = Path(rel)
         return p if p.is_absolute() else BASE_DIR / p
 
 
 # ---------------------------------------------------------------------------
-# Загрузка
+# Loading
 # ---------------------------------------------------------------------------
 def _config_path() -> Path:
-    """Путь к config.yaml (можно переопределить через FIREWATCH_CONFIG)."""
+    """Path to config.yaml (override with FIREWATCH_CONFIG)."""
     override = os.getenv("FIREWATCH_CONFIG")
     if override:
         p = Path(override)
@@ -106,15 +106,15 @@ def _config_path() -> Path:
 
 
 def load_config() -> Config:
-    """Прочитать config.yaml и собрать типизированный объект Config."""
+    """Read config.yaml and build a typed Config object."""
     cfg_path = _config_path()
     with open(cfg_path, "r", encoding="utf-8") as f:
         raw: dict[str, Any] = yaml.safe_load(f) or {}
 
-    # модели
+    # models
     models: dict[str, ModelCfg] = {}
     for name, m in (raw.get("models") or {}).items():
-        # ключи classes в yaml — int, приводим на всякий случай
+        # class keys in yaml should be ints; coerce defensively
         classes = {int(k): str(v) for k, v in (m.get("classes") or {}).items()}
         models[name] = ModelCfg(
             name=name,
@@ -142,12 +142,12 @@ def load_config() -> Config:
         webhook_url=str(a.get("webhook_url", "") or ""),
     )
 
-    # --- быстрые переопределения через окружение (не трогая config.yaml) ---
-    # FIREWATCH_VIDEO_SOURCE=0            -> веб-камера
+    # --- quick environment overrides (without editing config.yaml) ---
+    # FIREWATCH_VIDEO_SOURCE=0            -> webcam
     # FIREWATCH_VIDEO_SOURCE=rtsp://...   -> RTSP
-    # FIREWATCH_VIDEO_SOURCE=data/demo_fire.mp4 -> демо-файл
+    # FIREWATCH_VIDEO_SOURCE=data/demo_fire.mp4 -> demo file
     video_source = os.getenv("FIREWATCH_VIDEO_SOURCE") or str(raw.get("video_source", ""))
-    # FIREWATCH_FIRE_WEIGHTS=mock         -> форсировать MOCK-детектор огня (для демо)
+    # FIREWATCH_FIRE_WEIGHTS=mock         -> force the MOCK fire detector (demo)
     fire_override = os.getenv("FIREWATCH_FIRE_WEIGHTS")
     if fire_override and "fire" in models:
         models["fire"].weights = fire_override
@@ -167,16 +167,16 @@ def load_config() -> Config:
 
 def save_zones(cfg: Config, zones: list[dict[str, Any]]) -> None:
     """
-    Сохранить зоны обратно в config.yaml (используется UI-редактором зон).
-    zones — список словарей вида {"id": "A", "polygon": [[x,y], ...]} (нормализованные).
-    Остальная часть конфига сохраняется как есть.
+    Write zones back to config.yaml (used by the zone editor UI).
+    zones — list of dicts like {"id": "A", "polygon": [[x,y], ...]} (normalised).
+    The rest of the config is preserved as-is.
     """
     raw = dict(cfg.raw)
     raw["zones"] = [{"id": z["id"], "polygon": [[float(x), float(y)] for x, y in z["polygon"]]}
                     for z in zones]
     with open(cfg.config_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(raw, f, allow_unicode=True, sort_keys=False)
-    # обновим объект в памяти
+    # update the in-memory object
     cfg.raw = raw
     cfg.zones = [ZoneCfg(id=str(z["id"]),
                          polygon=[[float(x), float(y)] for x, y in z["polygon"]])

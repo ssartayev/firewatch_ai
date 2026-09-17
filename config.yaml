@@ -1,72 +1,72 @@
 # =====================================================================
-# FireWatch AI — конфигурация MVP
-# Все пути указаны относительно папки firewatch/ (корень проекта).
-# Секреты (токен Telegram и т.п.) НЕ здесь — они в .env, см. .env.example
+# FireWatch AI — MVP configuration
+# All paths are relative to the firewatch/ folder (the project root).
+# Secrets (Telegram token etc.) do NOT live here — see .env / .env.example
 # =====================================================================
 
-# Источник видео:
-#   0                      -> веб-камера ноутбука (по умолчанию)
-#   "rtsp://user:pass@ip:554/..." -> IP-камера
-#   "data/demo_fire.mp4"   -> демо-ролик со «сваркой» (офлайн-демо)
-# Можно переопределить без правки файла: FIREWATCH_VIDEO_SOURCE=... uvicorn ...
+# Video source:
+#   0                      -> laptop webcam (default)
+#   "rtsp://user:pass@ip:554/..." -> IP camera
+#   "data/demo_fire.mp4"   -> synthetic welding clip (offline demo)
+# Override without editing this file: FIREWATCH_VIDEO_SOURCE=... uvicorn ...
 video_source: 0
 
-# Целевой FPS обработки (кадры прореживаются до этого значения).
+# Target processing FPS (frames are dropped down to this rate).
 target_fps: 3
 
-# Зациклить видеофайл (удобно для демо/пилота). Для RTSP игнорируется.
+# Loop the video file (handy for demos/pilots). Ignored for RTSP.
 loop_video: true
 
 # ------------------------------------------------------------------
-# Модели-детекторы. Для каждой:
-#   weights  — путь к .pt весам, либо спец-значение "mock" (демо-детектор
-#              без нейросети — выдаёт сценарные детекции, чтобы прогнать всю
-#              логику зон/правил/алертов, пока нет реальных весов).
-#   classes  — маппинг «индекс класса модели -> каноничное имя».
-#              Каноничные имена, которые понимает логика:
+# Detector models. For each one:
+#   weights  — path to .pt weights, or the special value "mock" (a demo
+#              detector with no neural network that emits scripted detections,
+#              so zone/rule/alert logic runs before real weights exist).
+#   classes  — maps a model class index to a canonical name.
+#              Canonical names understood by the rule engine:
 #              fire, smoke, person, fire_extinguisher
-#   enabled  — можно временно отключить детектор.
+#   enabled  — temporarily disable a detector.
 # ------------------------------------------------------------------
 models:
   fire:
-    weights: "models/fire.pt"      # если весов нет — download_models.py подскажет; можно поставить "mock"
+    weights: "models/fire.pt"      # missing? run download_models.py, or set "mock"
     enabled: true
     classes:
       0: fire
       1: smoke
   person:
-    weights: "models/yolov8n.pt"   # стандартный COCO-детектор, класс 0 = person
+    weights: "models/yolov8n.pt"   # standard COCO detector, class 0 = person
     enabled: true
     classes:
       0: person
   extinguisher:
-    weights: "models/ext.pt"       # опционально; если файла нет — проверка огнетушителя = «не настроена»
+    weights: "models/ext.pt"       # optional; if absent, the extinguisher check reports "not configured"
     enabled: true
     classes:
       0: fire_extinguisher
 
 # ------------------------------------------------------------------
-# Параметры детекции и анти-FP фильтра
+# Detection parameters and the false-positive filter
 # ------------------------------------------------------------------
 detection:
-  conf_threshold: 0.40        # порог уверенности (выше = меньше ложных)
-  persistence_frames: 4       # огонь/дым должен держаться >= N кадров подряд
-  alert_cooldown_sec: 60      # не слать повторный алерт по зоне чаще, чем раз в N сек
-  near_zone_margin: 0.05      # «рядом с зоной» = в пределах этой доли кадра от полигона (для огнетушителя)
+  conf_threshold: 0.40        # confidence threshold (higher = fewer false positives)
+  persistence_frames: 4       # fire/smoke must persist for >= N consecutive frames
+  alert_cooldown_sec: 60      # do not re-alert the same zone more than once every N seconds
+  near_zone_margin: 0.05      # "near the zone" = within this fraction of the frame (extinguisher check)
 
 # ------------------------------------------------------------------
-# Зоны огневых работ. Координаты полигона — НОРМАЛИЗОВАННЫЕ (0..1)
-# относительно размера кадра, поэтому не зависят от разрешения камеры.
-# Полигон можно нарисовать в UI на странице / (кнопка «Задать зону»).
+# Hot-work zones. Polygon coordinates are NORMALISED (0..1) relative to
+# the frame size, so they do not depend on the camera resolution.
+# The polygon can be drawn in the UI on / (the "Set zone" button).
 # ------------------------------------------------------------------
 zones:
   - id: "A"
     polygon: [[0.30, 0.25], [0.70, 0.25], [0.70, 0.80], [0.30, 0.80]]
 
 # ------------------------------------------------------------------
-# Алерты
+# Alerts
 # ------------------------------------------------------------------
 alerts:
   telegram:
-    enabled: true             # реально отправит, только если в .env задан токен и chat_id
-  webhook_url: ""             # если задан — дублируем событие POST-запросом (JSON)
+    enabled: true             # only actually sends if a token and chat_id are set in .env
+  webhook_url: ""             # if set, the event is also POSTed as JSON

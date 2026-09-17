@@ -1,16 +1,16 @@
-# FireWatch AI — зависимости MVP
-# CV / инференс
-ultralytics>=8.3.0        # YOLO (тянет torch, torchvision, opencv, numpy, pillow)
-opencv-python>=4.9.0      # чтение видео и отрисовка боксов
+# FireWatch AI — MVP dependencies
+# computer vision / inference
+ultralytics>=8.3.0        # YOLO (pulls in torch, torchvision, opencv, numpy, pillow)
+opencv-python>=4.9.0      # video reading and box drawing
 
-# Веб-сервер и дашборд
+# web server and dashboard
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 jinja2>=3.1.0
-python-multipart>=0.0.9  # приём файлов/форм в FastAPI
+python-multipart>=0.0.9  # file/form handling in FastAPI
 
-# Конфиг и утилиты
+# config and utilities
 pyyaml>=6.0
 python-dotenv>=1.0.0
 requests>=2.31.0
-huggingface_hub>=0.23.0  # загрузка готовых весов fire/smoke
+huggingface_hub>=0.23.0  # downloading pretrained fire/smoke weights

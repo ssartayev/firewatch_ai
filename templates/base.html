@@ -6,7 +6,7 @@
   <title>{% block title %}FireWatch AI{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
   <script>
-    // применяем сохранённую тему до отрисовки (без «моргания»)
+    // apply the saved theme before paint (avoids a flash)
     (function () {
       var t = localStorage.getItem("fw-theme") || "dark";
       document.documentElement.setAttribute("data-theme", t);
@@ -14,7 +14,7 @@
   </script>
 </head>
 <body>
-  <!-- набор иконок (Lucide-стиль), подключается через <use> -->
+  <!-- icon sprite (Lucide style), referenced via <use> -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
       <g id="_ico" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></g>
@@ -50,34 +50,34 @@
         <div class="brand-mark"><svg class="icon"><use href="#i-flame"/></svg></div>
         <div>
           <div class="brand-name">FireWatch AI</div>
-          <div class="brand-sub">Наблюдающий за огнём</div>
+          <div class="brand-sub">Fire watcher</div>
         </div>
       </div>
 
-      <div class="nav-label">Разделы</div>
+      <div class="nav-label">Sections</div>
       <a class="nav-item {% if active=='monitor' %}active{% endif %}" href="/">
-        <svg class="icon"><use href="#i-dashboard"/></svg> Мониторинг</a>
+        <svg class="icon"><use href="#i-dashboard"/></svg> Monitoring</a>
       <a class="nav-item {% if active=='events' %}active{% endif %}" href="/events">
-        <svg class="icon"><use href="#i-history"/></svg> Журнал событий</a>
+        <svg class="icon"><use href="#i-history"/></svg> Event log</a>
       <a class="nav-item {% if active=='guide' %}active{% endif %}" href="/guide">
-        <svg class="icon"><use href="#i-help"/></svg> Как пользоваться</a>
+        <svg class="icon"><use href="#i-help"/></svg> How to use</a>
 
       <div class="sidebar-footer">
-        <div class="src-chip" id="src-chip" title="Источник видео">
+        <div class="src-chip" id="src-chip" title="Video source">
           <svg class="icon icon-sm"><use href="#i-camera"/></svg>
-          <span>Источник: <b id="src-name">—</b></span>
+          <span>Source: <b id="src-name">—</b></span>
         </div>
         <button class="theme-toggle" id="themeToggle" type="button">
           <svg class="icon icon-sm sun"><use href="#i-moon"/></svg>
           <svg class="icon icon-sm moon"><use href="#i-sun"/></svg>
-          <span>Сменить тему</span>
+          <span>Toggle theme</span>
         </button>
       </div>
     </aside>
 
     <div class="main">
       <header class="topbar">
-        <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Меню">
+        <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Menu">
           <svg class="icon"><use href="#i-menu"/></svg></button>
         <div>
           <h1>{% block page_title %}{% endblock %}</h1>
@@ -93,19 +93,19 @@
   <div class="toast" id="toast"><svg class="icon"><use href="#i-check"/></svg><span id="toast-msg"></span></div>
 
   <script>
-    // тема
+    // theme
     document.getElementById("themeToggle").addEventListener("click", function () {
       var cur = document.documentElement.getAttribute("data-theme");
       var next = cur === "dark" ? "light" : "dark";
       document.documentElement.setAttribute("data-theme", next);
       localStorage.setItem("fw-theme", next);
     });
-    // мобильное меню
+    // mobile menu
     var mb = document.getElementById("menuBtn");
     if (mb) mb.addEventListener("click", function () {
       document.getElementById("sidebar").classList.toggle("open");
     });
-    // общий тост
+    // shared toast
     window.fwToast = function (msg, ok) {
       if (ok === undefined) ok = true;
       var t = document.getElementById("toast");

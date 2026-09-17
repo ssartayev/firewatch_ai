@@ -1,10 +1,10 @@
 """
-Пайплайн обработки видео: ingest → inference → logic → alert → снапшот/БД.
+Video processing pipeline: ingest → inference → logic → alert → snapshot/DB.
 
-Крутится в отдельном потоке (запускается из FastAPI при старте). Наружу отдаёт:
-  - последний обработанный кадр (JPEG) для MJPEG-стрима на дашборде;
-  - «чистый» кадр без разметки (фон для UI-редактора зон);
-  - текущий статус зон и детекторов.
+Runs on its own thread (started by FastAPI on startup). It exposes:
+  - the latest processed frame (JPEG) for the dashboard MJPEG stream;
+  - a clean unannotated frame (background for the zone editor UI);
+  - the current zone and detector status.
 """
 from __future__ import annotations
 
@@ -32,9 +32,9 @@ from .zones import Zone, load_zones
 
 log = logging.getLogger("firewatch.pipeline")
 
-MAX_WIDTH = 960  # кадры шире — ужимаем (скорость + стабильность разметки)
+MAX_WIDTH = 960  # wider frames are downscaled (speed + stable annotation)
 
-# Цвета боксов (BGR)
+# Box colours (BGR)
 _COLORS = {
     "fire": (0, 0, 255),
     "smoke": (150, 150, 150),
@@ -61,8 +61,8 @@ class Pipeline:
         self.zones: list[Zone] = load_zones(cfg.zones)
 
         self._lock = threading.Lock()
-        self._latest_jpeg: Optional[bytes] = None    # обработанный кадр (с разметкой)
-        self._clean_frame: Optional[np.ndarray] = None  # чистый кадр (для редактора зон)
+        self._latest_jpeg: Optional[bytes] = None    # processed frame (annotated)
+        self._clean_frame: Optional[np.ndarray] = None  # clean frame (for the zone editor)
         self._status: dict[str, dict] = {}
         self._running = False
         self._thread: Optional[threading.Thread] = None
@@ -70,7 +70,7 @@ class Pipeline:
         self._events_total = 0
 
     # ------------------------------------------------------------------
-    # Управление жизненным циклом
+    # Lifecycle control
     # ------------------------------------------------------------------
     def start(self) -> None:
         if self._running:
@@ -78,7 +78,7 @@ class Pipeline:
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True, name="firewatch-pipeline")
         self._thread.start()
-        log.info("Пайплайн запущен. Источник: %s", self.cfg.video_source)
+        log.info("Pipeline started. Source: %s", self.cfg.video_source)
 
     def stop(self) -> None:
         self._running = False
@@ -86,12 +86,12 @@ class Pipeline:
             self._thread.join(timeout=3)
 
     def reload_zones(self) -> None:
-        """Перечитать зоны из конфига (после правки через UI)."""
+        """Reload zones from the config (after editing them in the UI)."""
         self.zones = load_zones(self.cfg.zones)
-        log.info("Зоны перезагружены: %s", [z.id for z in self.zones])
+        log.info("Zones reloaded: %s", [z.id for z in self.zones])
 
     # ------------------------------------------------------------------
-    # Доступ для дашборда (потокобезопасно)
+    # Dashboard access (thread-safe)
     # ------------------------------------------------------------------
     def get_jpeg(self) -> Optional[bytes]:
         with self._lock:
@@ -124,13 +124,13 @@ class Pipeline:
         }
 
     # ------------------------------------------------------------------
-    # Основной цикл
+    # Main loop
     # ------------------------------------------------------------------
     def _open_capture(self) -> tuple[cv2.VideoCapture, bool, float]:
         src_raw = self.cfg.video_source
-        if str(src_raw).isdigit():          # индекс веб-камеры
+        if str(src_raw).isdigit():          # webcam index
             idx, is_file = int(src_raw), False
-            # на macOS явно используем нативный бэкенд AVFoundation
+            # on macOS use the native AVFoundation backend explicitly
             if sys.platform == "darwin":
                 cap = cv2.VideoCapture(idx, cv2.CAP_AVFOUNDATION)
             else:
@@ -138,7 +138,7 @@ class Pipeline:
         elif str(src_raw).lower().startswith(("rtsp://", "http://", "https://")):
             is_file = False
             cap = cv2.VideoCapture(src_raw)
-        else:                               # локальный файл
+        else:                               # local file
             is_file = True
             cap = cv2.VideoCapture(str(self.cfg.path(src_raw)))
         src_fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
@@ -149,11 +149,11 @@ class Pipeline:
     def _run(self) -> None:
         cap, is_file, src_fps = self._open_capture()
         if not cap.isOpened():
-            log.error("Не удалось открыть источник видео: %s", self.cfg.video_source)
+            log.error("Could not open video source: %s", self.cfg.video_source)
             if str(self.cfg.video_source).isdigit():
-                log.error("Похоже на веб-камеру. На macOS выдайте разрешение «Камера» "
-                          "вашему терминалу: System Settings → Privacy & Security → Camera. "
-                          "Запускайте сервер из своего терминала (не из фонового процесса).")
+                log.error("This looks like a webcam. On macOS grant Camera permission "
+                          "to your terminal: System Settings → Privacy & Security → Camera. "
+                          "Run the server from your own terminal, not a background process.")
             self._running = False
             return
 
@@ -164,15 +164,15 @@ class Pipeline:
         while self._running:
             t0 = time.time()
             if not cap.grab():
-                # конец файла или обрыв потока
+                # end of file, or the stream dropped
                 if is_file and self.cfg.loop_video:
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     continue
                 if is_file:
-                    log.info("Видеофайл закончился — останавливаю пайплайн")
+                    log.info("Video file ended — stopping the pipeline")
                     break
-                # RTSP: пробуем переоткрыть
-                log.warning("Обрыв потока, переподключение…")
+                # RTSP: try to reopen
+                log.warning("Stream dropped, reconnecting…")
                 cap.release()
                 time.sleep(1.0)
                 cap, is_file, src_fps = self._open_capture()
@@ -185,7 +185,7 @@ class Pipeline:
                 if ok and frame is not None:
                     self._process_frame(frame)
 
-            # для файла держим темп исходного видео (реалтайм-вид), для RTSP — нет
+            # for files, pace to the source FPS for a realtime feel; not for RTSP
             if is_file:
                 time.sleep(max(0.0, src_interval - (time.time() - t0)))
 
@@ -202,7 +202,7 @@ class Pipeline:
 
         annotated = self._draw(frame, detections, status)
 
-        # сохранить «чистый» кадр и обработанный JPEG
+        # store the clean frame and the processed JPEG
         ok, buf = cv2.imencode(".jpg", annotated)
         with self._lock:
             self._clean_frame = frame.copy()
@@ -211,7 +211,7 @@ class Pipeline:
             self._status = status
             self._frames += 1
 
-        # события → снапшот + БД + алерт
+        # events → snapshot + DB + alert
         for ev in events:
             self._handle_event(ev, annotated)
 
@@ -229,12 +229,12 @@ class Pipeline:
         )
         self.alerter.dispatch(ev, ts_iso, snap_abs)
         self._events_total += 1
-        log.info("СОБЫТИЕ: зона=%s тип=%s conf=%.2f огнетушитель=%s наблюдающий=%s",
+        log.info("EVENT: zone=%s type=%s conf=%.2f extinguisher=%s observer=%s",
                  ev.zone_id, ev.event_type, ev.confidence,
                  ev.extinguisher_present, ev.observer_present)
 
     # ------------------------------------------------------------------
-    # Отрисовка
+    # Drawing
     # ------------------------------------------------------------------
     @staticmethod
     def _resize(frame: np.ndarray) -> np.ndarray:
@@ -249,7 +249,7 @@ class Pipeline:
         img = frame.copy()
         h, w = img.shape[:2]
 
-        # зоны
+        # zones
         for zone in self.zones:
             st = status.get(zone.id, {})
             alert = st.get("persistent")
@@ -260,7 +260,7 @@ class Pipeline:
             cv2.putText(img, f"ZONE {zone.id}", (int(x0), max(20, int(y0) - 8)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
 
-        # детекции
+        # detections
         for d in detections:
             x1, y1, x2, y2 = d.bbox
             color = _COLORS.get(d.label, (200, 200, 200))
@@ -268,7 +268,7 @@ class Pipeline:
             cv2.putText(img, f"{d.label} {d.confidence:.2f}", (x1, max(14, y1 - 6)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-        # верхняя плашка со временем + строка статуса по зонам
+        # top bar with the timestamp + per-zone status line
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cv2.rectangle(img, (0, 0), (w, 26), (0, 0, 0), -1)
         cv2.putText(img, f"FireWatch  {now_str}", (8, 18),

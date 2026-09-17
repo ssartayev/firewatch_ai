@@ -1,17 +1,17 @@
-// FireWatch — логика «Мониторинга»: статус, зоны, детекторы, редактор зоны, наряд.
+// FireWatch — monitoring logic: status, zones, detectors, zone editor, permits.
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
   var toast = window.fwToast;
 
-  // бейдж для трёх-состояния: true / false / null
+  // badge for a tri-state value: true / false / null
   function triBadge(v) {
-    if (v === true) return '<span class="badge ok">да</span>';
-    if (v === false) return '<span class="badge bad">нет</span>';
-    return '<span class="badge muted">н/д</span>';
+    if (v === true) return '<span class="badge ok">yes</span>';
+    if (v === false) return '<span class="badge bad">no</span>';
+    return '<span class="badge muted">n/a</span>';
   }
 
-  // ---------------- статус ----------------
+  // ---------------- status ----------------
   async function refreshStatus() {
     var s;
     try { s = await (await fetch("/api/status")).json(); }
@@ -22,7 +22,7 @@
 
     var lb = $("live-badge");
     if (s.running) { lb.className = "badge live"; lb.innerHTML = '<span class="dot"></span> LIVE'; }
-    else { lb.className = "badge bad"; lb.textContent = "остановлен"; }
+    else { lb.className = "badge bad"; lb.textContent = "stopped"; }
 
     var tg = $("tg-badge");
     if (s.telegram_ready) { tg.className = "badge ok"; tg.textContent = "Telegram ✓"; }
@@ -42,14 +42,14 @@
   function setDet(id, on) {
     var el = $(id);
     el.className = "badge " + (on ? "ok" : "muted");
-    el.textContent = on ? "активен" : "не настроен";
+    el.textContent = on ? "active" : "not configured";
   }
 
   function renderZones(zones) {
     var box = $("zones");
     var ids = Object.keys(zones || {});
     if (!ids.length) {
-      box.innerHTML = '<p class="hint">Зоны не заданы. Нажмите «Задать зону» под видео.</p>';
+      box.innerHTML = '<p class="hint">No zones defined. Click "Set zone" below the video.</p>';
       return;
     }
     box.innerHTML = ids.map(function (id) {
@@ -57,28 +57,28 @@
       var alert = z.persistent ? " alert" : "";
       var state = z.fire_active
         ? '<span class="badge bad"><span class="dot"></span> ' +
-          String(z.event_type || "огонь").toUpperCase() + " · " + z.streak + " к.</span>"
-        : '<span class="badge ok">спокойно</span>';
+          String(z.event_type || "fire").toUpperCase() + " · " + z.streak + " fr.</span>"
+        : '<span class="badge ok">clear</span>';
       return '<div class="zone-item' + alert + '">' +
         '<div class="zone-head"><span class="zone-title">' +
-          '<svg class="icon icon-sm"><use href="#i-target"/></svg> Зона ' + id + "</span>" + state + "</div>" +
-        '<div class="cond-row"><span>Наблюдающий</span>' + triBadge(z.observer_present) + "</div>" +
-        '<div class="cond-row"><span>Огнетушитель</span>' + triBadge(z.extinguisher_present) + "</div>" +
+          '<svg class="icon icon-sm"><use href="#i-target"/></svg> Zone ' + id + "</span>" + state + "</div>" +
+        '<div class="cond-row"><span>Observer</span>' + triBadge(z.observer_present) + "</div>" +
+        '<div class="cond-row"><span>Extinguisher</span>' + triBadge(z.extinguisher_present) + "</div>" +
       "</div>";
     }).join("");
   }
 
-  // ---------------- наряд ----------------
+  // ---------------- permit ----------------
   $("permitBtn").addEventListener("click", async function () {
     var num = $("permit").value.trim();
-    if (!num) return toast("Введите номер наряда", false);
+    if (!num) return toast("Enter a permit number", false);
     var fd = new FormData(); fd.append("permit_number", num);
     var r = await fetch("/api/permit/last", { method: "POST", body: fd });
-    if (r.ok) { toast("Наряд привязан к последнему событию"); $("permit").value = ""; }
-    else { var d = await r.json().catch(function () { return {}; }); toast(d.detail || "Событий пока нет", false); }
+    if (r.ok) { toast("Permit attached to the latest event"); $("permit").value = ""; }
+    else { var d = await r.json().catch(function () { return {}; }); toast(d.detail || "No events yet", false); }
   });
 
-  // ---------------- редактор зоны ----------------
+  // ---------------- zone editor ----------------
   var editor = $("editor"), ctx = editor.getContext("2d");
   var editing = false, bgImg = null, pts = [];
   $("editHint").style.display = "none";
@@ -110,7 +110,7 @@
       $("editControls").style.display = "inline-flex"; $("editHint").style.display = "inline";
       $("editBtn").style.display = "none"; editing = true; draw();
     };
-    img.onerror = function () { toast("Кадр ещё не готов, подождите пару секунд", false); };
+    img.onerror = function () { toast("Frame not ready yet, wait a couple of seconds", false); };
     img.src = "/frame.jpg?t=" + Date.now();
   }
   function stopEdit() {
@@ -131,17 +131,17 @@
   $("undoBtn").addEventListener("click", function () { pts.pop(); draw(); });
   $("clearBtn").addEventListener("click", function () { pts = []; draw(); });
   $("saveZoneBtn").addEventListener("click", async function () {
-    if (pts.length < 3) return toast("Нужно минимум 3 точки", false);
+    if (pts.length < 3) return toast("At least 3 points are required", false);
     var zone = { id: $("zoneId").value.trim() || "A", polygon: pts };
     var r = await fetch("/api/zones", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ zones: [zone] }),
     });
-    if (r.ok) { toast("Зона сохранена"); stopEdit(); }
-    else { var d = await r.json().catch(function () { return {}; }); toast(d.detail || "Не удалось сохранить", false); }
+    if (r.ok) { toast("Zone saved"); stopEdit(); }
+    else { var d = await r.json().catch(function () { return {}; }); toast(d.detail || "Could not save", false); }
   });
 
-  // ---------------- старт ----------------
+  // ---------------- start ----------------
   refreshStatus();
   setInterval(refreshStatus, 1500);
 })();

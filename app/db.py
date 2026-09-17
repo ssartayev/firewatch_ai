@@ -1,12 +1,12 @@
 """
-Слой хранения событий — SQLite (стандартный модуль sqlite3, без внешних ORM).
+Event storage layer — SQLite (stdlib sqlite3, no external ORM).
 
-Таблица events хранит каждое пожароопасное событие + статус условий наряда
-(огнетушитель / наблюдающий) + путь к снапшоту-доказательству.
+The events table stores each fire-hazard event, the permit condition status
+(extinguisher / observer), and the path to the proof snapshot.
 
-Соединения открываются на каждую операцию (по одному на вызов) — это делает
-модуль безопасным при обращении из разных потоков (фоновый пайплайн + FastAPI).
-Включён WAL для нормальной параллельной работы чтения/записи.
+A connection is opened per operation, which keeps this module safe to call
+from multiple threads (the background pipeline plus FastAPI).
+WAL mode is enabled for healthy concurrent reads and writes.
 """
 from __future__ import annotations
 
@@ -20,14 +20,14 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "firewatch.d
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts                    TEXT    NOT NULL,   -- ISO-8601 UTC, время события
+    ts                    TEXT    NOT NULL,   -- ISO-8601 UTC, event time
     zone_id               TEXT    NOT NULL,
     event_type            TEXT    NOT NULL,   -- 'fire' | 'smoke'
     confidence            REAL    NOT NULL,
-    extinguisher_present  INTEGER,            -- 1/0/NULL (NULL = проверка не настроена)
+    extinguisher_present  INTEGER,            -- 1/0/NULL (NULL = check not configured)
     observer_present      INTEGER,            -- 1/0/NULL
-    snapshot_path         TEXT,               -- относительный путь к кадру-доказательству
-    permit_number         TEXT,               -- номер наряда-допуска (вводится вручную)
+    snapshot_path         TEXT,               -- relative path to the proof frame
+    permit_number         TEXT,               -- work permit number (entered manually)
     created_at            TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts   ON events(ts);
@@ -40,7 +40,7 @@ def _now_iso() -> str:
 
 
 class EventStore:
-    """CRUD-обёртка над таблицей событий."""
+    """CRUD wrapper around the events table."""
 
     def __init__(self, db_path: Path | str = DEFAULT_DB_PATH):
         self.db_path = Path(db_path)
@@ -70,7 +70,7 @@ class EventStore:
         ts: Optional[str] = None,
         permit_number: Optional[str] = None,
     ) -> int:
-        """Записать событие. Возвращает id новой строки."""
+        """Insert an event. Returns the new row id."""
         ts = ts or _now_iso()
 
         def _b(v: Optional[bool]) -> Optional[int]:
@@ -95,7 +95,7 @@ class EventStore:
         date_to: Optional[str] = None,     # 'YYYY-MM-DD'
         limit: int = 200,
     ) -> list[dict[str, Any]]:
-        """Список событий с фильтрами по зоне и дате (сначала свежие)."""
+        """List events filtered by zone and date (newest first)."""
         sql = "SELECT * FROM events WHERE 1=1"
         params: list[Any] = []
         if zone_id:
@@ -105,7 +105,7 @@ class EventStore:
             sql += " AND ts >= ?"
             params.append(date_from)
         if date_to:
-            # включительно по дате: до конца указанного дня
+            # date filter is inclusive: through the end of the given day
             sql += " AND ts <= ?"
             params.append(date_to + "T23:59:59")
         sql += " ORDER BY id DESC LIMIT ?"
@@ -126,7 +126,7 @@ class EventStore:
         return dict(row) if row else None
 
     def set_permit(self, event_id: int, permit_number: str) -> bool:
-        """Привязать номер наряда к событию. True, если строка найдена."""
+        """Attach a permit number to an event. True if the row was found."""
         with self._connect() as conn:
             cur = conn.execute(
                 "UPDATE events SET permit_number = ? WHERE id = ?",

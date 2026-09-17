@@ -1,56 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Как пользоваться — FireWatch AI{% endblock %}
-{% block page_title %}Как пользоваться{% endblock %}
-{% block page_sub %}Пошаговый гайд: от запуска на камере до алертов и журнала{% endblock %}
+{% block title %}How to use — FireWatch AI{% endblock %}
+{% block page_title %}How to use{% endblock %}
+{% block page_sub %}Step-by-step: from camera startup to alerts and the event log{% endblock %}
 
 {% block content %}
 <div class="guide">
   <div class="card guide-hero">
-    <h2>🔥 За 5 минут до первого алерта</h2>
-    <p>FireWatch следит за зоной огневых работ, ловит огонь и дым, проверяет наличие
-       огнетушителя и наблюдающего, и при опасности сохраняет кадр, пишет в журнал и шлёт алерт.</p>
+    <h2>🔥 First alert in 5 minutes</h2>
+    <p>FireWatch watches a hot-work zone, detects fire and smoke, checks that an
+       extinguisher and an observer are present, and on danger saves a frame, logs it and sends an alert.</p>
   </div>
 
   <div class="card">
     <div class="step">
       <div class="step-num">1</div>
       <div class="step-body">
-        <h3>Запуск на веб-камере</h3>
-        <p>Источник по умолчанию — камера ноутбука. Запускайте из <b>своего</b> терминала
-           (фоновому процессу macOS камеру не выдаёт):</p>
+        <h3>Running on a webcam</h3>
+        <p>The default source is your laptop camera. Run it from <b>your own</b> terminal
+           (macOS will not grant camera access to a background process):</p>
         <pre><code>cd ~/Documents/bi/firewatch
 source .venv/bin/activate
 uvicorn app.main:app --port 8010</code></pre>
         <div class="callout">
           <svg class="icon"><use href="#i-camera"/></svg>
-          <div>macOS спросит доступ к <b>Камере</b> — разрешите (или System Settings →
-               Privacy &amp; Security → Camera). Закройте Zoom / FaceTime, если держат камеру.</div>
+          <div>macOS will ask for <b>Camera</b> access — allow it (or System Settings →
+               Privacy &amp; Security → Camera). Close Zoom / FaceTime if they hold the camera.</div>
         </div>
-        <p>Откройте <code>http://127.0.0.1:8010/</code> — вкладка <b>Мониторинг</b>.</p>
+        <p>Open <code>http://127.0.0.1:8010/</code> — the <b>Monitoring</b> tab.</p>
       </div>
     </div>
 
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-body">
-        <h3>Задать зону огневых работ</h3>
-        <p>На «Мониторинге» нажмите <b>«Задать зону»</b> под видео, кликами обведите
-           участок (≥ 3 точки) и нажмите <b>«Сохранить»</b>. Огонь засчитывается,
-           только если он <b>внутри</b> этой зоны — так отсекаются искры и блики по краям кадра.</p>
+        <h3>Define the hot-work zone</h3>
+        <p>On Monitoring, click <b>Set zone</b> under the video, click to outline the
+           area (3+ points) and press <b>Save</b>. Fire only counts when it is
+           <b>inside</b> the zone, which filters out sparks and glare at the frame edges.</p>
       </div>
     </div>
 
     <div class="step">
       <div class="step-num">3</div>
       <div class="step-body">
-        <h3>Проверить детекцию</h3>
-        <p>Поднесите к камере зажигалку, свечу или видео пламени на телефоне. В зоне
-           появится красный бокс <code>fire</code>, счётчик «Событий» вырастет, а в
-           <b>Журнале</b> добавится строка с кадром-доказательством.</p>
+        <h3>Test detection</h3>
+        <p>Hold a lighter, a candle or a flame video on your phone up to the camera. A red
+           <code>fire</code> box appears in the zone, the event counter increases, and a row
+           with a proof frame is added to the <b>Event log</b>.</p>
         <div class="callout">
           <svg class="icon"><use href="#i-flame"/></svg>
-          <div>Алерт срабатывает не с первого кадра: огонь должен держаться несколько
-               кадров подряд (анти-ложные), а повтор по зоне — не чаще, чем раз в 60 секунд.</div>
+          <div>The alert does not fire on the first frame: fire must persist for several
+               consecutive frames (false-positive filter), and repeats per zone are limited to once every 60 seconds.</div>
         </div>
       </div>
     </div>
@@ -58,12 +58,12 @@ uvicorn app.main:app --port 8010</code></pre>
     <div class="step">
       <div class="step-num">4</div>
       <div class="step-body">
-        <h3>Условия наряда: что значат бейджи</h3>
+        <h3>Permit conditions: what the badges mean</h3>
         <ul>
-          <li><span class="badge ok">да</span> — условие выполнено (наблюдающий / огнетушитель в зоне найден);</li>
-          <li><span class="badge bad">нет</span> — не найден в зоне;</li>
-          <li><span class="badge muted">н/д</span> — проверка не настроена (нет модели). Наблюдающий работает
-              на стандартной модели; для огнетушителя положите свои веса в <code>models/ext.pt</code>.</li>
+          <li><span class="badge ok">yes</span> — condition met (observer / extinguisher found in the zone);</li>
+          <li><span class="badge bad">no</span> — not found in the zone;</li>
+          <li><span class="badge muted">n/a</span> — check not configured (no model). The observer check uses
+              the standard model; for the extinguisher, put your own weights in <code>models/ext.pt</code>.</li>
         </ul>
       </div>
     </div>
@@ -71,36 +71,36 @@ uvicorn app.main:app --port 8010</code></pre>
     <div class="step">
       <div class="step-num">5</div>
       <div class="step-body">
-        <h3>Алерты в Telegram</h3>
-        <p>Создайте бота у <code>@BotFather</code>, узнайте свой <code>chat_id</code>, затем:</p>
-        <pre><code>cp .env.example .env   # впишите TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID</code></pre>
-        <p>Перезапустите сервер — при событии в чат прилетит фото с зоной, временем и
-           статусом условий. Бейдж <b>Telegram</b> вверху покажет «настроен».
-           Дополнительно можно задать <code>webhook_url</code> в <code>config.yaml</code>.</p>
+        <h3>Telegram alerts</h3>
+        <p>Create a bot via <code>@BotFather</code>, find your <code>chat_id</code>, then:</p>
+        <pre><code>cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID</code></pre>
+        <p>Restart the server — on an event, a photo with the zone, time and condition
+           status arrives in the chat. The <b>Telegram</b> badge at the top will read "configured".
+           You can also set <code>webhook_url</code> in <code>config.yaml</code>.</p>
       </div>
     </div>
 
     <div class="step">
       <div class="step-num">6</div>
       <div class="step-body">
-        <h3>Журнал и привязка наряда</h3>
-        <p>Вкладка <b>Журнал событий</b> — таблица с фильтрами по дате и зоне, кадрами и
-           статусом условий. Номер наряда-допуска можно вписать прямо в строке события
-           или на «Мониторинге» — к последнему событию.</p>
+        <h3>Event log and permit linking</h3>
+        <p>The <b>Event log</b> tab is a table with date and zone filters, proof frames and
+           condition status. A work permit number can be entered directly on the event row
+           or on Monitoring, where it attaches to the latest event.</p>
       </div>
     </div>
 
     <div class="step">
       <div class="step-num">7</div>
       <div class="step-body">
-        <h3>Тонкая настройка — <code>config.yaml</code></h3>
+        <h3>Tuning — <code>config.yaml</code></h3>
         <ul>
-          <li><code>video_source</code> — <code>0</code> (камера), <code>rtsp://…</code> или путь к файлу;</li>
-          <li><code>detection.conf_threshold</code> — порог уверенности (выше = меньше ложных);</li>
-          <li><code>detection.persistence_frames</code> — сколько кадров подряд для тревоги;</li>
-          <li><code>detection.alert_cooldown_sec</code> — пауза между повторными алертами.</li>
+          <li><code>video_source</code> — <code>0</code> (camera), <code>rtsp://…</code> or a file path;</li>
+          <li><code>detection.conf_threshold</code> — confidence threshold (higher = fewer false positives);</li>
+          <li><code>detection.persistence_frames</code> — consecutive frames required to alarm;</li>
+          <li><code>detection.alert_cooldown_sec</code> — pause between repeated alerts.</li>
         </ul>
-        <p>Быстро сменить источник без правки файла:
+        <p>Switch the source quickly without editing the file:
            <code>FIREWATCH_VIDEO_SOURCE=0 uvicorn app.main:app --port 8010</code></p>
       </div>
     </div>
@@ -108,8 +108,8 @@ uvicorn app.main:app --port 8010</code></pre>
     <div class="step">
       <div class="step-num">8</div>
       <div class="step-body">
-        <h3>Офлайн-демо (без камеры)</h3>
-        <p>Синтетический ролик + демо-детектор — показать весь пайплайн без реального огня:</p>
+        <h3>Offline demo (no camera)</h3>
+        <p>A synthetic clip plus the demo detector shows the whole pipeline without real fire:</p>
         <pre><code>python scripts/make_demo_video.py
 FIREWATCH_VIDEO_SOURCE=data/demo_fire.mp4 FIREWATCH_FIRE_WEIGHTS=mock uvicorn app.main:app --port 8010</code></pre>
       </div>

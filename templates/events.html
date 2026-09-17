@@ -1,28 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Журнал событий — FireWatch AI{% endblock %}
-{% block page_title %}Журнал событий{% endblock %}
-{% block page_sub %}История пожароопасных срабатываний с кадрами-доказательствами{% endblock %}
+{% block title %}Event log — FireWatch AI{% endblock %}
+{% block page_title %}Event log{% endblock %}
+{% block page_sub %}History of fire-hazard events with proof frames{% endblock %}
 
 {% block content %}
 <div class="col">
   <div class="card">
-    <div class="card-head"><svg class="icon"><use href="#i-filter"/></svg><h2>Фильтр</h2></div>
+    <div class="card-head"><svg class="icon"><use href="#i-filter"/></svg><h2>Filter</h2></div>
     <div class="card-pad">
       <form method="get" action="/events" class="filter-bar">
         <div class="field">
-          <label>Зона</label>
-          <input name="zone_id" placeholder="напр. A" value="{{ filters.zone_id }}">
+          <label>Zone</label>
+          <input name="zone_id" placeholder="e.g. A" value="{{ filters.zone_id }}">
         </div>
         <div class="field">
-          <label>С даты</label>
+          <label>From date</label>
           <input type="date" name="date_from" value="{{ filters.date_from }}">
         </div>
         <div class="field">
-          <label>По дату</label>
+          <label>To date</label>
           <input type="date" name="date_to" value="{{ filters.date_to }}">
         </div>
-        <button class="btn primary" type="submit">Применить</button>
-        <a class="btn ghost" href="/events">Сбросить</a>
+        <button class="btn primary" type="submit">Apply</button>
+        <a class="btn ghost" href="/events">Reset</a>
       </form>
     </div>
   </div>
@@ -30,7 +30,7 @@
   <div class="card">
     <div class="card-head">
       <svg class="icon"><use href="#i-history"/></svg>
-      <h2>События</h2>
+      <h2>Events</h2>
       <span class="spacer"></span>
       <span class="badge muted">{{ events|length }}</span>
     </div>
@@ -38,15 +38,15 @@
     {% if not events %}
       <div class="empty">
         <svg class="icon"><use href="#i-bell"/></svg>
-        <div>Пока пусто. Событие появится, когда в зоне обнаружат огонь или дым.</div>
+        <div>Nothing yet. Events appear once fire or smoke is detected in a zone.</div>
       </div>
     {% else %}
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>#</th><th>Время (UTC)</th><th>Зона</th><th>Тип</th><th>Увер.</th>
-            <th>Огнетушитель</th><th>Наблюдающий</th><th>Кадр</th><th>Наряд</th>
+            <th>#</th><th>Time (UTC)</th><th>Zone</th><th>Type</th><th>Conf.</th>
+            <th>Extinguisher</th><th>Observer</th><th>Frame</th><th>Permit</th>
           </tr>
         </thead>
         <tbody>
@@ -56,30 +56,30 @@
             <td class="mono">{{ e.ts.replace("T", " ") }}</td>
             <td><span class="badge muted">{{ e.zone_id }}</span></td>
             <td>
-              {% if e.event_type == "fire" %}<span class="badge bad"><span class="dot"></span> огонь</span>
-              {% else %}<span class="badge warn"><span class="dot"></span> дым</span>{% endif %}
+              {% if e.event_type == "fire" %}<span class="badge bad"><span class="dot"></span> fire</span>
+              {% else %}<span class="badge warn"><span class="dot"></span> smoke</span>{% endif %}
             </td>
             <td class="mono">{{ "%.2f"|format(e.confidence) }}</td>
             <td>
-              {% if e.extinguisher_present == 1 %}<span class="badge ok">да</span>
-              {% elif e.extinguisher_present == 0 %}<span class="badge bad">нет</span>
-              {% else %}<span class="badge muted">н/д</span>{% endif %}
+              {% if e.extinguisher_present == 1 %}<span class="badge ok">yes</span>
+              {% elif e.extinguisher_present == 0 %}<span class="badge bad">no</span>
+              {% else %}<span class="badge muted">n/a</span>{% endif %}
             </td>
             <td>
-              {% if e.observer_present == 1 %}<span class="badge ok">да</span>
-              {% elif e.observer_present == 0 %}<span class="badge bad">нет</span>
-              {% else %}<span class="badge muted">н/д</span>{% endif %}
+              {% if e.observer_present == 1 %}<span class="badge ok">yes</span>
+              {% elif e.observer_present == 0 %}<span class="badge bad">no</span>
+              {% else %}<span class="badge muted">n/a</span>{% endif %}
             </td>
             <td>
               {% if e.snapshot_path %}
                 <a href="/{{ e.snapshot_path }}" target="_blank">
-                  <img class="thumb" src="/{{ e.snapshot_path }}" alt="кадр"></a>
+                  <img class="thumb" src="/{{ e.snapshot_path }}" alt="frame"></a>
               {% else %}—{% endif %}
             </td>
             <td>
               <div class="input-row">
                 <input class="permit-inp" data-id="{{ e.id }}" style="width:120px"
-                       placeholder="номер" value="{{ e.permit_number or '' }}">
+                       placeholder="number" value="{{ e.permit_number or '' }}">
                 <button class="btn sm permit-save" data-id="{{ e.id }}">
                   <svg class="icon"><use href="#i-check"/></svg></button>
               </div>
@@ -103,7 +103,7 @@
       var fd = new FormData();
       fd.append("permit_number", inp.value.trim());
       var r = await fetch("/api/events/" + id + "/permit", { method: "POST", body: fd });
-      window.fwToast(r.ok ? "Наряд привязан к событию #" + id : "Ошибка", r.ok);
+      window.fwToast(r.ok ? "Permit attached to event #" + id : "Error", r.ok);
     });
   });
 </script>

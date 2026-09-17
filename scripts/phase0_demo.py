@@ -1,11 +1,11 @@
 """
-Фаза 0 — минимальное доказательство, что детект работает.
+Phase 0 — a minimal proof that detection works.
 
-Прогоняет детекторы (из config.yaml) по видеофайлу, рисует боксы и сохраняет
-размеченный ролик в data/phase0_out.mp4. Никаких зон/правил/алертов — только
-инференс + отрисовка.
+Runs the detectors (from config.yaml) over a video file, draws boxes and saves
+the annotated clip to data/phase0_out.mp4. No zones, rules or alerts — just
+inference and drawing.
 
-Запуск:  python scripts/phase0_demo.py [input_video] [output_video]
+Run:  python scripts/phase0_demo.py [input_video] [output_video]
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import cv2
 
-# делаем пакет app импортируемым при запуске из папки firewatch/
+# make the app package importable when run from the firewatch/ folder
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.config import load_config              # noqa: E402
@@ -28,15 +28,15 @@ def main() -> int:
     dst = sys.argv[2] if len(sys.argv) > 2 else str(cfg.path("data/phase0_out.mp4"))
 
     if not Path(src).exists():
-        print(f"Нет входного видео: {src}. Сначала: python scripts/make_demo_video.py")
+        print(f"No input video: {src}. Run this first: python scripts/make_demo_video.py")
         return 1
 
     dets = DetectorSet(cfg.models, cfg.detection.conf_threshold)
-    print("Детекторы:", dets.status())
+    print("Detectors:", dets.status())
 
     cap = cv2.VideoCapture(src)
     if not cap.isOpened():
-        print(f"Не открыть видео: {src}")
+        print(f"Could not open video: {src}")
         return 1
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -61,8 +61,8 @@ def main() -> int:
 
     cap.release()
     writer.release()
-    print(f"Кадров: {frames}, всего детекций: {total_det}")
-    print(f"Размеченное видео: {dst}")
+    print(f"Frames: {frames}, total detections: {total_det}")
+    print(f"Annotated video: {dst}")
     return 0
 
 

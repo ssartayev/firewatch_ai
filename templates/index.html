@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Мониторинг — FireWatch AI{% endblock %}
-{% block page_title %}Мониторинг{% endblock %}
-{% block page_sub %}Живой поток, зоны и условия наряда в реальном времени{% endblock %}
+{% block title %}Monitoring — FireWatch AI{% endblock %}
+{% block page_title %}Monitoring{% endblock %}
+{% block page_sub %}Live stream, zones and permit conditions in real time{% endblock %}
 
 {% block actions %}
   <span class="badge live" id="live-badge"><span class="dot"></span> LIVE</span>
@@ -10,44 +10,44 @@
 
 {% block content %}
 <div class="grid-main">
-  <!-- Левая колонка: видео + редактор зоны -->
+  <!-- Left column: video + zone editor -->
   <div class="col">
     <div class="card">
       <div class="video-card">
         <div class="video-overlay">
           <span class="badge live overlay-badge"><span class="dot"></span> LIVE</span>
         </div>
-        <img id="stream" src="/video_feed" alt="поток с камеры">
+        <img id="stream" src="/video_feed" alt="camera stream">
         <canvas id="editor" style="display:none"></canvas>
       </div>
       <div class="video-toolbar">
-        <button class="btn sm" id="editBtn"><svg class="icon"><use href="#i-pencil"/></svg> Задать зону</button>
+        <button class="btn sm" id="editBtn"><svg class="icon"><use href="#i-pencil"/></svg> Set zone</button>
         <span id="editControls" style="display:none; gap:8px; align-items:center;" class="input-row">
-          <input id="zoneId" value="A" style="width:60px" title="ID зоны">
-          <button class="btn sm" id="undoBtn"><svg class="icon"><use href="#i-undo"/></svg> Точку</button>
-          <button class="btn sm" id="clearBtn"><svg class="icon"><use href="#i-trash"/></svg> Сброс</button>
-          <button class="btn sm primary" id="saveZoneBtn"><svg class="icon"><use href="#i-check"/></svg> Сохранить</button>
+          <input id="zoneId" value="A" style="width:60px" title="Zone ID">
+          <button class="btn sm" id="undoBtn"><svg class="icon"><use href="#i-undo"/></svg> Undo point</button>
+          <button class="btn sm" id="clearBtn"><svg class="icon"><use href="#i-trash"/></svg> Clear</button>
+          <button class="btn sm primary" id="saveZoneBtn"><svg class="icon"><use href="#i-check"/></svg> Save</button>
           <button class="btn sm ghost" id="cancelBtn"><svg class="icon"><use href="#i-x"/></svg></button>
         </span>
         <span class="spacer" style="flex:1"></span>
-        <span class="hint" id="editHint">Кликайте по кадру, чтобы обвести зону (≥ 3 точки)</span>
+        <span class="hint" id="editHint">Click on the frame to outline a zone (3+ points)</span>
       </div>
     </div>
   </div>
 
-  <!-- Правая колонка: статус -->
+  <!-- Right column: status -->
   <div class="col">
     <div class="stat-grid">
       <div class="stat">
         <div class="stat-top">
-          <span class="stat-label">Кадров обработано</span>
+          <span class="stat-label">Frames processed</span>
           <span class="stat-ico"><svg class="icon"><use href="#i-activity"/></svg></span>
         </div>
         <div class="stat-val" id="s-frames">0</div>
       </div>
       <div class="stat">
         <div class="stat-top">
-          <span class="stat-label">Событий всего</span>
+          <span class="stat-label">Total events</span>
           <span class="stat-ico"><svg class="icon"><use href="#i-bell"/></svg></span>
         </div>
         <div class="stat-val" id="s-events">0</div>
@@ -55,38 +55,38 @@
     </div>
 
     <div class="card">
-      <div class="card-head"><svg class="icon"><use href="#i-target"/></svg><h2>Зоны огневых работ</h2></div>
+      <div class="card-head"><svg class="icon"><use href="#i-target"/></svg><h2>Hot-work zones</h2></div>
       <div class="card-pad" id="zones">
-        <p class="hint">Загрузка…</p>
+        <p class="hint">Loading…</p>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><svg class="icon"><use href="#i-flame"/></svg><h2>Детекторы</h2></div>
+      <div class="card-head"><svg class="icon"><use href="#i-flame"/></svg><h2>Detectors</h2></div>
       <div class="card-pad">
         <div class="det-row">
-          <span class="det-name"><svg class="icon icon-sm"><use href="#i-flame"/></svg> Огонь / дым</span>
+          <span class="det-name"><svg class="icon icon-sm"><use href="#i-flame"/></svg> Fire / smoke</span>
           <span id="d-fire" class="badge muted">—</span>
         </div>
         <div class="det-row">
-          <span class="det-name"><svg class="icon icon-sm"><use href="#i-user"/></svg> Наблюдающий</span>
+          <span class="det-name"><svg class="icon icon-sm"><use href="#i-user"/></svg> Observer</span>
           <span id="d-person" class="badge muted">—</span>
         </div>
         <div class="det-row">
-          <span class="det-name"><svg class="icon icon-sm"><use href="#i-shield"/></svg> Огнетушитель</span>
+          <span class="det-name"><svg class="icon icon-sm"><use href="#i-shield"/></svg> Extinguisher</span>
           <span id="d-ext" class="badge muted">—</span>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-head"><svg class="icon"><use href="#i-clipboard"/></svg><h2>Наряд-допуск</h2></div>
+      <div class="card-head"><svg class="icon"><use href="#i-clipboard"/></svg><h2>Work permit</h2></div>
       <div class="card-pad">
         <div class="field">
-          <label>Привязать номер к последнему событию</label>
+          <label>Attach a number to the latest event</label>
           <div class="input-row">
-            <input id="permit" placeholder="напр. НД-2026-014">
-            <button class="btn primary" id="permitBtn">Привязать</button>
+            <input id="permit" placeholder="e.g. WP-2026-014">
+            <button class="btn primary" id="permitBtn">Attach</button>
           </div>
         </div>
       </div>

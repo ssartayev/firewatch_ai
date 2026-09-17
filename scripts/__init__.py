@@ -1,1 +1,1 @@
-"""Служебные скрипты FireWatch (загрузка весов, генерация демо-видео, Фаза 0)."""
+"""FireWatch utility scripts (weight download, demo video generation, Phase 0)."""

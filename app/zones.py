@@ -1,8 +1,8 @@
 """
-Зоны огневых работ: хранение полигонов и пространственные проверки.
+Hot-work zones: polygon storage and spatial checks.
 
-Полигоны хранятся в НОРМАЛИЗОВАННЫХ координатах (0..1), чтобы не зависеть от
-разрешения камеры/кадра. Перевод в пиксели — по фактическому размеру кадра.
+Polygons are stored in NORMALISED coordinates (0..1) so they do not depend on
+the camera/frame resolution. Conversion to pixels uses the actual frame size.
 """
 from __future__ import annotations
 
@@ -15,27 +15,27 @@ from .config import ZoneCfg
 
 @dataclass
 class Zone:
-    """Полигональная зона (нормализованные вершины)."""
+    """A polygon zone (normalised vertices)."""
     id: str
-    polygon: list[tuple[float, float]]   # [(x,y), ...], x,y в 0..1
+    polygon: list[tuple[float, float]]   # [(x,y), ...], x,y in 0..1
 
     @classmethod
     def from_cfg(cls, z: ZoneCfg) -> "Zone":
         return cls(id=z.id, polygon=[(float(x), float(y)) for x, y in z.polygon])
 
-    # --- геометрия ---
+    # --- geometry ---
     def contains_norm(self, x: float, y: float) -> bool:
-        """Точка (нормализованная) внутри полигона? Алгоритм ray casting."""
+        """Is the (normalised) point inside the polygon? Ray casting algorithm."""
         return _point_in_polygon(x, y, self.polygon)
 
     def contains_point(self, x: float, y: float, w: int, h: int) -> bool:
-        """Точка в пикселях внутри зоны?"""
+        """Is the pixel point inside the zone?"""
         return self.contains_norm(x / max(w, 1), y / max(h, 1))
 
     def near_norm(self, x: float, y: float, margin: float) -> bool:
         """
-        Точка внутри зоны ИЛИ в пределах margin (доля кадра) от её вершин.
-        Используется для огнетушителя «в зоне или рядом».
+        Point inside the zone OR within margin (fraction of the frame) of its
+        vertices. Used for the "extinguisher in or near the zone" check.
         """
         if self.contains_norm(x, y):
             return True
@@ -45,13 +45,13 @@ class Zone:
         return False
 
     def pixel_polygon(self, w: int, h: int) -> np.ndarray:
-        """Полигон в пикселях (для отрисовки в OpenCV)."""
+        """Polygon in pixels (for drawing with OpenCV)."""
         pts = [(int(px * w), int(py * h)) for px, py in self.polygon]
         return np.array(pts, dtype=np.int32)
 
 
 def _point_in_polygon(x: float, y: float, poly: list[tuple[float, float]]) -> bool:
-    """Классический ray casting: чётность пересечений луча с рёбрами полигона."""
+    """Classic ray casting: parity of ray/edge intersections."""
     n = len(poly)
     if n < 3:
         return False
@@ -60,7 +60,7 @@ def _point_in_polygon(x: float, y: float, poly: list[tuple[float, float]]) -> bo
     for i in range(n):
         xi, yi = poly[i]
         xj, yj = poly[j]
-        # ребро (i, j) пересекает горизонтальный луч из точки?
+        # does edge (i, j) cross the horizontal ray from the point?
         if (yi > y) != (yj > y):
             x_cross = (xj - xi) * (y - yi) / (yj - yi + 1e-12) + xi
             if x < x_cross:

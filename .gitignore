@@ -1,12 +1,12 @@
-# секреты
+# secrets
 .env
 
-# окружение
+# environment
 .venv/
 __pycache__/
 *.pyc
 
-# артефакты рантайма
+# runtime artefacts
 models/*.pt
 snapshots/*.jpg
 data/*.db
@@ -14,5 +14,5 @@ data/*.db-*
 data/demo_fire.mp4
 data/phase0_out.mp4
 
-# служебное
+# housekeeping
 .DS_Store

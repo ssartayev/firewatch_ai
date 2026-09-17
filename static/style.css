@@ -1,38 +1,38 @@
 /* =====================================================================
-   FireWatch AI — дизайн-система дашборда (эстетика shadcn / 21st.dev).
-   Чистый CSS, без сборки. Тёмная тема по умолчанию + светлая через
-   [data-theme="light"]. Оранжевый акцент под бренд «огонь».
+   FireWatch AI — dashboard design system (shadcn / 21st.dev aesthetic).
+   Plain CSS, no build step. Dark theme by default, light theme via
+   [data-theme="light"]. Orange accent for the "fire" brand.
    ===================================================================== */
 
 :root {
   color-scheme: dark;
-  /* поверхности */
+  /* surfaces */
   --bg: hsl(240 10% 5%);
   --sidebar: hsl(240 10% 7%);
   --card: hsl(240 8% 9%);
   --card-hover: hsl(240 8% 12%);
   --elevated: hsl(240 7% 13%);
-  /* текст */
+  /* text */
   --fg: hsl(0 0% 98%);
   --muted: hsl(240 5% 58%);
   --faint: hsl(240 5% 40%);
-  /* границы */
+  /* borders */
   --border: hsl(240 5% 16%);
   --border-strong: hsl(240 5% 24%);
   --ring: hsl(22 92% 52% / 0.5);
-  /* акцент (огонь) */
+  /* accent (fire) */
   --accent: hsl(22 92% 54%);
   --accent-hover: hsl(22 92% 48%);
   --accent-fg: hsl(20 90% 6%);
   --accent-soft: hsl(22 92% 54% / 0.12);
-  /* семантика */
+  /* semantic */
   --ok: hsl(150 60% 45%);
   --ok-soft: hsl(150 60% 45% / 0.14);
   --bad: hsl(0 78% 60%);
   --bad-soft: hsl(0 78% 60% / 0.14);
   --warn: hsl(38 92% 55%);
   --warn-soft: hsl(38 92% 55% / 0.14);
-  /* прочее */
+  /* misc */
   --radius: 14px;
   --radius-sm: 9px;
   --shadow: 0 1px 2px hsl(0 0% 0% / 0.4), 0 8px 24px hsl(0 0% 0% / 0.25);

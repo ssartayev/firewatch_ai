@@ -1,13 +1,13 @@
 """
-Алертинг: снапшот-доказательство + Telegram + webhook.
+Alerting: proof snapshot + Telegram + webhook.
 
-- Снапшот (кадр с уже отрисованными боксами и контуром зоны) сохраняется в
-  snapshots/ и его путь пишется в БД.
-- Сообщение уходит в Telegram (sendPhoto с подписью), если в .env заданы
-  токен и chat_id.
-- Если задан webhook_url — дублируем событие POST-запросом (JSON).
+- The snapshot (a frame with boxes and the zone outline already drawn) is
+  saved to snapshots/ and its path is written to the database.
+- The message is sent to Telegram (sendPhoto with a caption) if the token
+  and chat_id are set in .env.
+- If webhook_url is set, the event is also POSTed as JSON.
 
-Отправка по сети выполняется в отдельном потоке, чтобы не тормозить пайплайн.
+Network delivery runs on a separate thread so the pipeline never blocks.
 """
 from __future__ import annotations
 
@@ -30,14 +30,14 @@ SNAPSHOTS_DIR = Path(__file__).resolve().parent.parent / "snapshots"
 
 def _cond(v: Optional[bool]) -> str:
     if v is True:
-        return "найден ✅"
+        return "present ✅"
     if v is False:
-        return "НЕ найден ❌"
-    return "не проверяется —"
+        return "NOT present ❌"
+    return "not checked —"
 
 
 class Alerter:
-    """Отправка алертов и сохранение снапшотов."""
+    """Sends alerts and saves snapshots."""
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
@@ -46,8 +46,8 @@ class Alerter:
     # ------------------------------------------------------------------
     def save_snapshot(self, annotated_frame, event: FireEvent) -> tuple[str, Path]:
         """
-        Сохранить кадр-доказательство. Возвращает (относительный_путь, абсолютный_путь).
-        Относительный путь ('snapshots/...') пишется в БД и отдаётся дашбордом.
+        Save the proof frame. Returns (relative_path, absolute_path).
+        The relative path ('snapshots/...') is stored in the DB and served by the dashboard.
         """
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:-3]
         fname = f"{ts}_zone{event.zone_id}_{event.event_type}.jpg"
@@ -59,22 +59,22 @@ class Alerter:
     def build_message(self, event: FireEvent, ts_iso: str,
                       permit: Optional[str] = None) -> str:
         when = ts_iso.replace("T", " ")
-        type_ru = "ОГОНЬ" if event.event_type == "fire" else "ДЫМ"
+        type_label = "FIRE" if event.event_type == "fire" else "SMOKE"
         lines = [
-            "🔥 FireWatch — ТРЕВОГА (огневые работы)",
-            f"Зона: {event.zone_id}",
-            f"Время: {when}",
-            f"Тип: {type_ru} (уверенность {event.confidence:.2f})",
-            f"Огнетушитель в зоне: {_cond(event.extinguisher_present)}",
-            f"Наблюдающий в зоне: {_cond(event.observer_present)}",
-            f"Наряд-допуск: {permit or '—'}",
+            "🔥 FireWatch — ALERT (hot work)",
+            f"Zone: {event.zone_id}",
+            f"Time: {when}",
+            f"Type: {type_label} (confidence {event.confidence:.2f})",
+            f"Extinguisher in zone: {_cond(event.extinguisher_present)}",
+            f"Observer in zone: {_cond(event.observer_present)}",
+            f"Work permit: {permit or '—'}",
         ]
         return "\n".join(lines)
 
     # ------------------------------------------------------------------
     def dispatch(self, event: FireEvent, ts_iso: str, snapshot_abs: Path,
                  permit: Optional[str] = None) -> None:
-        """Разослать алерт (в фоне, чтобы не блокировать пайплайн)."""
+        """Dispatch the alert (in the background so the pipeline is not blocked)."""
         text = self.build_message(event, ts_iso, permit)
         payload = {
             "zone_id": event.zone_id,
@@ -95,16 +95,16 @@ class Alerter:
         try:
             self._send_telegram(text, snapshot_abs)
         except Exception as e:  # noqa: BLE001
-            log.warning("Telegram: ошибка отправки: %s", e)
+            log.warning("Telegram: send failed: %s", e)
         try:
             self._send_webhook(payload)
         except Exception as e:  # noqa: BLE001
-            log.warning("Webhook: ошибка отправки: %s", e)
+            log.warning("Webhook: send failed: %s", e)
 
     # ------------------------------------------------------------------
     def _send_telegram(self, text: str, photo_path: Path) -> None:
         if not self.cfg.telegram_ready:
-            log.info("Telegram не настроен (нет токена/chat_id) — пропускаю отправку")
+            log.info("Telegram not configured (missing token/chat_id) — skipping send")
             return
         url = f"https://api.telegram.org/bot{self.cfg.telegram_token}/sendPhoto"
         with open(photo_path, "rb") as f:
@@ -115,13 +115,13 @@ class Alerter:
                 timeout=15,
             )
         if resp.status_code == 200:
-            log.info("Telegram: алерт отправлен")
+            log.info("Telegram: alert sent")
         else:
-            log.warning("Telegram: код %s, ответ %s", resp.status_code, resp.text[:200])
+            log.warning("Telegram: status %s, response %s", resp.status_code, resp.text[:200])
 
     def _send_webhook(self, payload: dict) -> None:
         url = self.cfg.alerts.webhook_url
         if not url:
             return
         resp = requests.post(url, json=payload, timeout=15)
-        log.info("Webhook: код %s", resp.status_code)
+        log.info("Webhook: status %s", resp.status_code)

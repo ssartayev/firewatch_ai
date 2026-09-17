@@ -16,7 +16,6 @@ Built for a pilot with BI Group, a large construction company.
 detection with its confidence score, and the status bar shows the rule engine's
 verdict — fire is persistent, no extinguisher confirmed, no observer present.*
 
-[Русская версия README →](README.ru.md)
 
 ---
 

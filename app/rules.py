@@ -1,15 +1,16 @@
 """
-Правила пожаробезопасности + состояние/дебаунс.
+Fire-safety rules, state tracking and debouncing.
 
-Ключевые идеи (анти-FP + осмысленный алерт):
-  1. Огонь/дым считаются валидными, только если центр детекции ВНУТРИ зоны.
-  2. Событие срабатывает, лишь когда огонь/дым держится >= persistence_frames
-     кадров ПОДРЯД — одиночный ложный кадр (искра, блик) не создаёт алерт.
-  3. Повторный алерт по той же зоне — не чаще alert_cooldown_sec (дебаунс).
-  4. Для валидного события проверяются видимые условия наряда:
-       - есть ли огнетушитель в зоне/рядом;
-       - есть ли человек-наблюдающий в зоне.
-     Если соответствующая модель не настроена — условие = None («не проверяется»).
+Key ideas (false-positive suppression + meaningful alerts):
+  1. Fire/smoke counts only if the detection centre is INSIDE a zone.
+  2. An event fires only after fire/smoke persists for >= persistence_frames
+     CONSECUTIVE frames — a single bad frame (spark, glare) raises no alert.
+  3. Repeat alerts for the same zone are throttled to alert_cooldown_sec.
+  4. For a valid event, the visible permit conditions are checked:
+       - is a fire extinguisher in or near the zone?
+       - is a human observer inside the zone?
+     If the matching model is not configured, the condition is None
+     ("not checked") rather than silently passing.
 """
 from __future__ import annotations
 
@@ -28,25 +29,25 @@ from .zones import Zone
 
 @dataclass
 class FireEvent:
-    """Готовое к алерту событие пожароопасности."""
+    """A fire-hazard event ready to be alerted on."""
     zone_id: str
     event_type: str                       # 'fire' | 'smoke'
     confidence: float
-    extinguisher_present: Optional[bool]  # None = проверка не настроена
+    extinguisher_present: Optional[bool]  # None = check not configured
     observer_present: Optional[bool]
-    detections: list[Detection] = field(default_factory=list)  # для отрисовки снапшота
+    detections: list[Detection] = field(default_factory=list)  # for drawing the snapshot
 
 
 @dataclass
 class _ZoneState:
-    streak: int = 0                       # сколько кадров подряд горит
+    streak: int = 0                       # consecutive frames with fire
     best_conf: float = 0.0
     best_type: str = "fire"
     last_alert_ts: float = 0.0
 
 
 class RuleEngine:
-    """Хранит состояние по зонам и решает, когда слать алерт."""
+    """Tracks per-zone state and decides when to send an alert."""
 
     def __init__(
         self,
@@ -75,15 +76,15 @@ class RuleEngine:
         now: Optional[float] = None,
     ) -> tuple[list[FireEvent], dict[str, dict]]:
         """
-        Обработать один кадр.
-        Возвращает (список событий для алерта, статус зон для дашборда).
+        Process a single frame.
+        Returns (events to alert on, per-zone status for the dashboard).
         """
         now = time.time() if now is None else now
         w, h = frame_wh
         events: list[FireEvent] = []
         status: dict[str, dict] = {}
 
-        # заранее разложим детекции по категориям (в нормализованных центрах)
+        # bucket detections by category up front (normalised centres)
         fires = [(d, d.norm_center(w, h)) for d in detections if d.label in FIRE_LABELS]
         persons = [(d, d.norm_center(w, h)) for d in detections if d.label == PERSON_LABEL]
         exts = [(d, d.norm_center(w, h)) for d in detections if d.label == EXTINGUISHER_LABEL]
@@ -91,10 +92,10 @@ class RuleEngine:
         for zone in zones:
             st = self._st(zone.id)
 
-            # --- огонь/дым внутри зоны ---
+            # --- fire/smoke inside the zone ---
             in_zone = [(d, c) for (d, c) in fires if zone.contains_norm(*c)]
             if in_zone:
-                # берём самую уверенную детекцию; fire приоритетнее smoke
+                # take the most confident detection; fire outranks smoke
                 best = max(in_zone, key=lambda dc: (dc[0].label == "fire", dc[0].confidence))[0]
                 st.streak += 1
                 st.best_conf = best.confidence
@@ -105,11 +106,11 @@ class RuleEngine:
 
             persistent = st.streak >= self.persistence_frames
 
-            # --- условия наряда ---
+            # --- permit conditions ---
             observer_present = self._observer(zone, persons) if self.person_check else None
             extinguisher_present = self._extinguisher(zone, exts) if self.ext_check else None
 
-            # --- решение об алерте (валидно + дебаунс) ---
+            # --- alert decision (valid + debounced) ---
             fire_now = bool(in_zone)
             alert = False
             if persistent and (now - st.last_alert_ts >= self.cooldown):

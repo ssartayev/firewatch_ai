@@ -1,1 +1,1 @@
-"""FireWatch AI — пакет приложения (мониторинг огневых работ)."""
+"""FireWatch AI — application package (hot-work safety monitoring)."""
