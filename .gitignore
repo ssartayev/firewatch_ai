@@ -1,0 +1,18 @@
+# секреты
+.env
+
+# окружение
+.venv/
+__pycache__/
+*.pyc
+
+# артефакты рантайма
+models/*.pt
+snapshots/*.jpg
+data/*.db
+data/*.db-*
+data/demo_fire.mp4
+data/phase0_out.mp4
+
+# служебное
+.DS_Store
