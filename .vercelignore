@@ -1,0 +1,20 @@
+# Only web/ is deployed. Everything below is the engine, its dependencies and
+# the deck build inputs - none of it is served, and requirements.txt in
+# particular makes Vercel try to install torch, which is a 5.8 GB bundle.
+.venv/
+__pycache__/
+snapshots/
+models/
+data/
+docs/
+legacy/
+app/
+scripts/
+templates/
+static/
+requirements.txt
+deck/clips/
+deck/stills/
+deck/shots/
+deck/fonts/
+deck/.flat/
