@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How it works — SENSE AI</title>
+  <meta name="description" content="SENSE AI — confidence-aware occupancy intelligence and building-wide evacuation optimisation. Decision-support prototype.">
+  <link rel="stylesheet" href="/static/css/sense.css?v=static">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2306080b'/><circle cx='16' cy='16' r='9' fill='none' stroke='%2322d3ee' stroke-width='2.5'/><circle cx='16' cy='16' r='3' fill='%2322d3ee'/></svg>">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><b>SENSE&nbsp;AI</b><span>MVP&nbsp;SIMULATION</span></div>
+  <nav class="nav">
+    <a href="/index.html"            class="">Live view</a>
+    <a href="/occupancy.html"   class="">Who is inside</a>
+    <a href="/evacuation.html"  class="">Escape routes</a>
+    <a href="/command.html"     class="">Firefighter view</a>
+    <a href="/twin.html"        class="">Building &amp; sensors</a>
+    <a href="/technology.html"  class="on">How it works</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="livechip"><span class="dot" data-conn></span><span id="conn-clock">T+00:00</span></div>
+</div>
+
+<div class="shell">
+  
+
+<p class="eyebrow">How it works</p>
+<h1 class="head">Sensors are replaceable. The model in the middle is the product.</h1>
+<p class="sub">
+  Every detection model in SENSE AI is a module behind an interface: it returns an estimate
+  and a confidence, and nothing downstream knows or cares what produced it. A better camera
+  model, a different radar vendor or a building's existing fire panel all plug into the same
+  place. What does not get swapped out is the layer that decides how much to trust each of
+  them and what to do about the people the result implies.
+</p>
+
+<div class="panel" style="margin-bottom:16px">
+  <header><h3>How information flows through the system</h3></header>
+  <div class="body" style="padding:6px"><div id="arch"></div></div>
+</div>
+
+<div class="grid g-2" style="margin-bottom:16px">
+  <div class="panel">
+    <header><h3>What the system does, over and over</h3></header>
+    <div class="body">
+      <table class="t"><thead><tr><th style="width:110px">Step</th><th>What happens</th></tr></thead><tbody>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">SENSE</td><td class="tiny dim">Read every device in the twin: cameras, presence sensors, smoke and heat detectors. Advance the hazard state.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">ESTIMATE</td><td class="tiny dim">Fuse the layers per space by precision weighting. Publish a range wherever combined precision is low.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">PLAN</td><td class="tiny dim">Allocate the whole population across every usable exit in parcels, each one seeing the congestion the last one created.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">GUIDE</td><td class="tiny dim">Derive per-zone instructions from the allocation. Different zones get different messages because they are going to different cores.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">OBSERVE</td><td class="tiny dim">Watch where people actually go. A share of them will not follow the instruction, and that share is measured rather than assumed away.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">COMPARE</td><td class="tiny dim">Measure the gap between planned and observed distribution across the cores.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">RECALCULATE</td><td class="tiny dim">Replan when the divergence, the hazard or the load says so. The plan is a snapshot, never a commitment.</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <header><h3>Stack</h3></header>
+    <div class="body">
+      <table class="t"><thead><tr><th>Layer</th><th>Built with</th></tr></thead><tbody>
+        <tr><td>Detection models</td><td class="mono tiny">Ultralytics YOLO · PyTorch · OpenCV</td></tr>
+        <tr><td>Sensor fusion</td><td class="mono tiny">Python — precision weighting, noisy-OR confidence</td></tr>
+        <tr><td>Building twin</td><td class="mono tiny">Python — node/edge graph with flow capacities</td></tr>
+        <tr><td>Hazard transport</td><td class="mono tiny">Python — gradient smoke transport over the graph</td></tr>
+        <tr><td>Routing</td><td class="mono tiny">Python — Dijkstra over time-varying cost</td></tr>
+        <tr><td>Allocation</td><td class="mono tiny">Python — incremental parcel assignment</td></tr>
+        <tr><td>Crowd simulation</td><td class="mono tiny">Python — capacity-gated pipes, compliance model</td></tr>
+        <tr><td>Server</td><td class="mono tiny">FastAPI · Uvicorn · WebSocket state stream</td></tr>
+        <tr><td>Interface</td><td class="mono tiny">Jinja2 · vanilla JS · hand-built SVG, no framework</td></tr>
+        <tr><td>Persistence</td><td class="mono tiny">SQLite event log (carried over from FireWatch)</td></tr>
+      </tbody></table>
+      <div class="note cy tiny" style="margin-top:10px">
+        SENSE AI grew out of <b>FireWatch AI</b>, a computer-vision hot-work safety monitor
+        built on the same stack. The fire and smoke detector from that project is now the
+        hazard-sensing layer here. The original code is kept under <span class="mono">legacy/</span>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid g-2">
+  <div class="panel">
+    <header><h3>The camera models we use</h3><div class="spacer"></div>
+      <span class="pill ok">
+        YOLO RUNTIME ACTIVE</span></header>
+    <div class="body stack">
+      <div class="mono tiny mute">Ultralytics YOLO — person, fire/smoke</div>
+      
+      <div style="border:1px solid var(--line);border-radius:3px;padding:10px">
+        <div class="row wrap" style="gap:7px">
+          <span class="mono" style="color:var(--cyan);font-size:11.5px">Beehzod/yolov26-fire-smoke-detection</span>
+          <span class="pill">fire / smoke</span>
+          <span class="pill warn">experimental MVP candidate</span>
+        </div>
+        <div class="mono tiny dim" style="margin-top:6px">
+          <span style="margin-right:13px">mAP50 <b style="color:var(--text)">0.81</b></span><span style="margin-right:13px">precision <b style="color:var(--text)">0.83</b></span><span style="margin-right:13px">recall <b style="color:var(--text)">0.76</b></span>
+        </div>
+        <div class="tiny mute" style="margin-top:5px;line-height:1.5">Self-reported model-card validation results. Not independently verified, not validated on this building, not a certification.</div>
+      </div>
+      
+      <div style="border:1px solid var(--line);border-radius:3px;padding:10px">
+        <div class="row wrap" style="gap:7px">
+          <span class="mono" style="color:var(--cyan);font-size:11.5px">mfranzon/fire-smoke-yolov8</span>
+          <span class="pill">fire / smoke</span>
+          <span class="pill ok">currently bundled</span>
+        </div>
+        <div class="mono tiny dim" style="margin-top:6px">
+          <span style="margin-right:13px">mAP50 <b style="color:var(--text)">not published</b></span><span style="margin-right:13px">precision <b style="color:var(--text)">not published</b></span><span style="margin-right:13px">recall <b style="color:var(--text)">not published</b></span>
+        </div>
+        <div class="tiny mute" style="margin-top:5px;line-height:1.5">Selected during the FireWatch phase after live-flame checks. No published validation figures.</div>
+      </div>
+      
+      <div style="border:1px solid var(--line);border-radius:3px;padding:10px">
+        <div class="row wrap" style="gap:7px">
+          <span class="mono" style="color:var(--cyan);font-size:11.5px">Ultralytics/yolov8n (COCO)</span>
+          <span class="pill">person</span>
+          <span class="pill ok">currently bundled</span>
+        </div>
+        <div class="mono tiny dim" style="margin-top:6px">
+          <span style="margin-right:13px">mAP50-95 <b style="color:var(--text)">0.373</b></span><span style="margin-right:13px">precision <b style="color:var(--text)">n/a</b></span><span style="margin-right:13px">recall <b style="color:var(--text)">n/a</b></span>
+        </div>
+        <div class="tiny mute" style="margin-top:5px;line-height:1.5">Official Ultralytics COCO figure. Person class only is used.</div>
+      </div>
+      
+      <div class="disclaimer">Experimental detection model. Published metrics are the model author's self-reported validation results, not certification and not evidence of real-world fire-safety performance.</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <header><h3>What this cannot do — read this part</h3></header>
+    <div class="body stack" style="gap:9px">
+      <div class="note warn tiny"><b>It is not certified and has no regulatory approval.</b>
+        Nothing here has been assessed against any life-safety standard, and it must not be
+        relied on as, or in place of, a compliant fire alarm and evacuation system.</div>
+      <div class="note warn tiny"><b>It does not guarantee detection.</b>
+        The detection models are experimental. Published figures are the model authors'
+        self-reported validation results on their own datasets, not measurements on this
+        building and not evidence of real-world fire performance.</div>
+      <div class="note warn tiny"><b>It does not see through walls.</b>
+        The non-visual layer detects motion and micro-motion signatures. Its accuracy depends
+        on mounting, on partition materials and on commissioning, it merges people who stand
+        close together, and it is never treated as an exact count.</div>
+      <div class="note warn tiny"><b>It does not command anyone.</b>
+        The responder screen is decision support. A commander decides; the system states its
+        belief, its confidence and its reasoning.</div>
+      <div class="note warn tiny"><b>It does not claim novel routing.</b>
+        Dynamic hazard detection, digital building models, changing evacuation routes and
+        dynamic exit signage all exist today. The integration is what is being proposed:
+        confidence-aware occupancy, crowd-flow observation, capacity modelling,
+        population-level allocation and repeated replanning against observed behaviour.</div>
+      <div class="note warn tiny"><b>It is not production-ready.</b>
+        This is a simulation on a schematic building, built to evaluate the concept.</div>
+    </div>
+  </div>
+</div>
+
+
+
+  <footer class="foot">
+    <strong style="color:var(--text-dim)">SENSE AI is a working demonstration, not a finished product.</strong>
+    The building, the people and the sensors in it are simulated. It is not an approved
+    fire-safety system, it has no safety certification, and it cannot promise that a fire
+    will be detected or that everyone will get out. Every people-count you see is an
+    estimate with a stated confidence, never an exact count. The escape routes are a
+    simulation on a simplified map of a building. The camera model is experimental, and any
+    accuracy figure quoted comes from the people who published that model, not from us.
+  </footer>
+</div>
+
+<script>window.BUILDING = {"devices": [{"future": false, "id": "CAM-301", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R301", "note": "", "status": "online"}, {"future": false, "id": "CAM-303", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R303", "note": "", "status": "online"}, {"future": false, "id": "CAM-304", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "CAM-305", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "CAM-306", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R306", "note": "", "status": "online"}, {"future": false, "id": "CAM-311", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R311", "note": "", "status": "online"}, {"future": false, "id": "CAM-313", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R313", "note": "", "status": "online"}, {"future": false, "id": "CAM-314", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R314", "note": "", "status": "online"}, {"future": false, "id": "CAM-316", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R316", "note": "", "status": "online"}, {"future": false, "id": "CAM-C1", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "CAM-C2", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "CAM-C3", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "CAM-C4", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "CAM-C5", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "PRS-301", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R301", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-302", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R302", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-303", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R303", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-304", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R304", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-305", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R305", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-306", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R306", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-311", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R311", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-312", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R312", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-313", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R313", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-314", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R314", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-315", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R315", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-316", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R316", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C1", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C1", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C2", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C2", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C3", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C3", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C4", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C4", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C5", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C5", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-302-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R302", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "PRS-312-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R312", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "PRS-315-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R315", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "SMK-301", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R301", "note": "", "status": "online"}, {"future": false, "id": "SMK-302", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R302", "note": "", "status": "online"}, {"future": false, "id": "SMK-303", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R303", "note": "", "status": "online"}, {"future": false, "id": "SMK-304", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "SMK-305", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "SMK-306", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R306", "note": "", "status": "online"}, {"future": false, "id": "SMK-311", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R311", "note": "", "status": "online"}, {"future": false, "id": "SMK-312", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R312", "note": "", "status": "online"}, {"future": false, "id": "SMK-313", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R313", "note": "", "status": "online"}, {"future": false, "id": "SMK-314", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R314", "note": "", "status": "online"}, {"future": false, "id": "SMK-315", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R315", "note": "", "status": "online"}, {"future": false, "id": "SMK-316", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R316", "note": "", "status": "online"}, {"future": false, "id": "SMK-C1", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "SMK-C2", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "SMK-C3", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "SMK-C4", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "SMK-C5", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "HEAT-304", "kind": "heat", "model": "fixed-temperature heat detector", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "HEAT-305", "kind": "heat", "model": "fixed-temperature heat detector", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "SPK-C1", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "SPK-C2", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "SPK-C3", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "SPK-C4", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "SPK-C5", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "SPK-A", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-A", "note": "", "status": "online"}, {"future": false, "id": "SPK-B", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-B", "note": "", "status": "online"}, {"future": false, "id": "SPK-C", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-C", "note": "", "status": "online"}, {"future": true, "id": "LED-C1", "kind": "led", "model": "ceiling directional LED strip", "node": "C1", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C2", "kind": "led", "model": "ceiling directional LED strip", "node": "C2", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C3", "kind": "led", "model": "ceiling directional LED strip", "node": "C3", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C4", "kind": "led", "model": "ceiling directional LED strip", "node": "C4", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C5", "kind": "led", "model": "ceiling directional LED strip", "node": "C5", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-A", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-A", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-B", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-B", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-C", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "PANEL-3", "kind": "panel", "model": "fire alarm panel interface (BACnet / Modbus)", "node": "C3", "note": "proposed integration with building systems", "status": "online"}], "edges": [{"a": "C1", "b": "C2", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C2", "b": "C3", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C3", "b": "C4", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C4", "b": "C5", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "R301", "b": "C1", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R302", "b": "C2", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R303", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R304", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R305", "b": "C4", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R306", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R311", "b": "C1", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R312", "b": "C2", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R313", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R314", "b": "C4", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R315", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R316", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "C1", "b": "STAIR-A", "capacity": 1.56, "kind": "level", "length_m": 8.0, "width_m": 1.2}, {"a": "C5", "b": "STAIR-B", "capacity": 1.82, "kind": "level", "length_m": 8.0, "width_m": 1.4}, {"a": "C3", "b": "STAIR-C", "capacity": 2.34, "kind": "level", "length_m": 8.0, "width_m": 1.8}, {"a": "STAIR-A", "b": "EXIT-A", "capacity": 1.08, "kind": "stair", "length_m": 24.0, "width_m": 1.2}, {"a": "STAIR-B", "b": "EXIT-B", "capacity": 1.26, "kind": "stair", "length_m": 24.0, "width_m": 1.4}, {"a": "STAIR-C", "b": "EXIT-C", "capacity": 1.62, "kind": "stair", "length_m": 24.0, "width_m": 1.8}], "exits": ["EXIT-A", "EXIT-B", "EXIT-C"], "floors": [{"floor": 5, "modelled": false, "name": "Level 5 \u2014 offices", "population": 14}, {"floor": 4, "modelled": false, "name": "Level 4 \u2014 offices", "population": 16}, {"floor": 3, "modelled": true, "name": "Level 3 \u2014 offices and plant", "population": 41}, {"floor": 2, "modelled": false, "name": "Level 2 \u2014 offices", "population": 9}, {"floor": 1, "modelled": false, "name": "Level 1 \u2014 reception", "population": 4}], "name": "Tower B \u2014 Innovation Park", "nodes": {"C1": {"area_m2": 108.5, "cx": 176.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "West corridor", "id": "C1", "kind": "corridor", "label": "C1", "name": "West corridor", "use": "circulation", "w": 148, "x": 102, "y": 245.0}, "C2": {"area_m2": 117.3, "cx": 330.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "West-central corridor", "id": "C2", "kind": "corridor", "label": "C2", "name": "West-central corridor", "use": "circulation", "w": 160, "x": 250, "y": 245.0}, "C3": {"area_m2": 117.3, "cx": 490.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "Central corridor", "id": "C3", "kind": "corridor", "label": "C3", "name": "Central corridor", "use": "circulation", "w": 160, "x": 410, "y": 245.0}, "C4": {"area_m2": 117.3, "cx": 650.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "East-central corridor", "id": "C4", "kind": "corridor", "label": "C4", "name": "East-central corridor", "use": "circulation", "w": 160, "x": 570, "y": 245.0}, "C5": {"area_m2": 123.2, "cx": 814.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "East corridor", "id": "C5", "kind": "corridor", "label": "C5", "name": "East corridor", "use": "circulation", "w": 168, "x": 730, "y": 245.0}, "EXIT-A": {"area_m2": 20, "cx": 71.0, "cy": 500.0, "floor": 0, "h": 40, "human": "Exit A \u2014 west door to the street", "id": "EXIT-A", "kind": "exit", "label": "EXIT A", "name": "Exit A \u2014 west door", "use": "core", "w": 62, "x": 40, "y": 480}, "EXIT-B": {"area_m2": 20, "cx": 929.0, "cy": 500.0, "floor": 0, "h": 40, "human": "Exit B \u2014 east door to the yard", "id": "EXIT-B", "kind": "exit", "label": "EXIT B", "name": "Exit B \u2014 east yard", "use": "core", "w": 62, "x": 898, "y": 480}, "EXIT-C": {"area_m2": 40, "cx": 413.0, "cy": 500.5, "floor": 0, "h": 39, "human": "Exit C \u2014 main lobby, the main way out", "id": "EXIT-C", "kind": "exit", "label": "EXIT C", "name": "Exit C \u2014 main lobby", "use": "core", "w": 110, "x": 358, "y": 481}, "R301": {"area_m2": 74, "cx": 168.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 301 \u2014 open-plan desks", "id": "R301", "kind": "room", "label": "301", "name": "Open desk north", "use": "office", "w": 132, "x": 102, "y": 62.0}, "R302": {"area_m2": 74, "cx": 300.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 302 \u2014 meeting room", "id": "R302", "kind": "room", "label": "302", "name": "Meeting 302", "use": "meeting", "w": 132, "x": 234, "y": 62.0}, "R303": {"area_m2": 74, "cx": 432.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 303 \u2014 open-plan desks", "id": "R303", "kind": "room", "label": "303", "name": "Open desk 303", "use": "office", "w": 132, "x": 366, "y": 62.0}, "R304": {"area_m2": 75, "cx": 564.5, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 304 \u2014 lab", "id": "R304", "kind": "room", "label": "304", "name": "Lab 304", "use": "lab", "w": 133, "x": 498, "y": 62.0}, "R305": {"area_m2": 75, "cx": 697.5, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 305 \u2014 plant and server room", "id": "R305", "kind": "room", "label": "305", "name": "Plant / server 305", "use": "lab", "w": 133, "x": 631, "y": 62.0}, "R306": {"area_m2": 75, "cx": 831.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 306 \u2014 open-plan desks", "id": "R306", "kind": "room", "label": "306", "name": "Open desk east", "use": "office", "w": 134, "x": 764, "y": 62.0}, "R311": {"area_m2": 63, "cx": 166.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 311 \u2014 open-plan desks", "id": "R311", "kind": "room", "label": "311", "name": "Open desk south", "use": "office", "w": 128, "x": 102, "y": 311.0}, "R312": {"area_m2": 63, "cx": 294.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 312 \u2014 meeting room", "id": "R312", "kind": "room", "label": "312", "name": "Meeting 312", "use": "meeting", "w": 128, "x": 230, "y": 311.0}, "R313": {"area_m2": 52, "cx": 520.5, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 313 \u2014 storeroom", "id": "R313", "kind": "room", "label": "313", "name": "Store 313", "use": "office", "w": 105, "x": 468, "y": 311.0}, "R314": {"area_m2": 64, "cx": 638.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 314 \u2014 open-plan desks", "id": "R314", "kind": "room", "label": "314", "name": "Open desk 314", "use": "office", "w": 130, "x": 573, "y": 311.0}, "R315": {"area_m2": 48, "cx": 752.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 315 \u2014 quiet room", "id": "R315", "kind": "room", "label": "315", "name": "Quiet room 315", "use": "office", "w": 98, "x": 703, "y": 311.0}, "R316": {"area_m2": 48, "cx": 849.5, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 316 \u2014 meeting room", "id": "R316", "kind": "room", "label": "316", "name": "Meeting 316", "use": "meeting", "w": 97, "x": 801, "y": 311.0}, "STAIR-A": {"area_m2": 24, "cx": 71.0, "cy": 266.5, "floor": 3, "h": 409, "human": "Stair A \u2014 west, the narrow one", "id": "STAIR-A", "kind": "stair", "label": "A", "name": "Stair A (west core)", "use": "core", "w": 62, "x": 40, "y": 62.0}, "STAIR-B": {"area_m2": 24, "cx": 929.0, "cy": 266.5, "floor": 3, "h": 409, "human": "Stair B \u2014 east", "id": "STAIR-B", "kind": "stair", "label": "B", "name": "Stair B (east core)", "use": "core", "w": 62, "x": 898, "y": 62.0}, "STAIR-C": {"area_m2": 30, "cx": 413.0, "cy": 391.0, "floor": 3, "h": 160, "human": "Stair C \u2014 central, the widest", "id": "STAIR-C", "kind": "stair", "label": "C", "name": "Stair C (central core)", "use": "core", "w": 110, "x": 358, "y": 311.0}}, "stairs": ["STAIR-A", "STAIR-B", "STAIR-C"]};</script>
+<script src="/static/js/sense.js?v=static"></script>
+<script src="/static/js/floorplan.js?v=static"></script>
+<script>
+  SENSE.on(s => {
+    const c = document.getElementById('conn-clock');
+    if (c) c.textContent = SENSE.fmt.clock(s.t);
+    document.querySelectorAll('[data-conn]').forEach(n => {
+      n.classList.toggle('alarm', s.mode === 'clearing' || s.mode === 'incident');
+    });
+  });
+</script>
+
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, p) => { const e = document.createElementNS(NS, n); for (const k in a) if (a[k] != null) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+
+  const svg = el('svg', { viewBox: '0 0 1180 470', preserveAspectRatio: 'xMidYMid meet', style: 'width:100%;height:auto' }, document.getElementById('arch'));
+  const defs = el('defs', {}, svg);
+  const mk = el('marker', { id: 'ah', viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 6, markerHeight: 6, orient: 'auto' }, defs);
+  el('path', { d: 'M0 0 L8 4 L0 8 z', fill: '#2e4757' }, mk);
+
+  const COL = { in: '#22d3ee', core: '#34d399', out: '#8b93f8', future: '#f5a524' };
+
+  const NODES = [
+    { id: 'cam',   x: 20,  y: 22,  w: 190, h: 52, t: 'Cameras', s: 'edge-AI person detection', c: COL.in },
+    { id: 'prs',   x: 20,  y: 92,  w: 190, h: 52, t: 'Non-visual sensors', s: 'mmWave · thermal presence', c: COL.in },
+    { id: 'fire',  x: 20,  y: 162, w: 190, h: 52, t: 'Fire and smoke sensors', s: 'photo-optical · heat', c: COL.in },
+    { id: 'bms',   x: 20,  y: 232, w: 190, h: 52, t: 'Building systems', s: 'alarm panel · proposed', c: COL.future, dash: 1 },
+
+    { id: 'fuse',  x: 268, y: 92,  w: 200, h: 82, t: 'Confidence-aware fusion', s: 'precision weighting · ranges', c: COL.core },
+    { id: 'twin',  x: 262, y: 206, w: 212, h: 78, t: 'Live building + population model', s: 'graph · capacities · occupancy', c: COL.core },
+
+    { id: 'anal',  x: 526, y: 92,  w: 200, h: 82, t: 'Crowd and hazard analysis', s: 'density · flow · tenability', c: COL.core },
+    { id: 'plan',  x: 520, y: 206, w: 212, h: 78, t: 'Building-wide evacuation plan', s: 'parcel allocation · replanning', c: COL.core },
+
+    { id: 'sim',   x: 784, y: 22,  w: 200, h: 62, t: 'Digital route simulation', s: 'MVP output — this product', c: COL.out },
+    { id: 'spk',   x: 784, y: 100, w: 200, h: 62, t: 'Zoned speakers', s: 'per-zone instructions', c: COL.out },
+    { id: 'led',   x: 784, y: 178, w: 200, h: 62, t: 'Ceiling LED guidance', s: 'proposed future output', c: COL.future, dash: 1 },
+    { id: 'cmd',   x: 784, y: 256, w: 200, h: 62, t: 'Firefighter command view', s: 'decision support', c: COL.out },
+
+    { id: 'obs',   x: 526, y: 330, w: 200, h: 72, t: 'Observed crowd movement', s: 'measured, not assumed', c: COL.in },
+    { id: 'cmp',   x: 268, y: 330, w: 200, h: 72, t: 'Compare plan to reality', s: 'divergence triggers replan', c: COL.core }
+  ];
+
+  const EDGES = [
+    ['cam', 'fuse'], ['prs', 'fuse'], ['fire', 'fuse'], ['bms', 'twin'],
+    ['fuse', 'twin'], ['twin', 'anal'], ['fuse', 'anal'], ['anal', 'plan'],
+    ['plan', 'sim'], ['plan', 'spk'], ['plan', 'led'], ['plan', 'cmd'],
+    ['spk', 'obs'], ['obs', 'cmp'], ['cmp', 'plan'], ['cmp', 'twin']
+  ];
+
+  const map = {};
+  NODES.forEach(n => { map[n.id] = n; });
+
+  // edges first so boxes sit on top
+  EDGES.forEach(([a, b]) => {
+    const A = map[a], B = map[b];
+    const ax = A.x + A.w, ay = A.y + A.h / 2;
+    const bx = B.x, by = B.y + B.h / 2;
+    let d;
+    if (B.x < A.x) {            // feedback edge, route underneath
+      d = `M${A.x} ${A.y + A.h / 2} C${A.x - 34} ${A.y + A.h / 2}, ${B.x + B.w + 34} ${by}, ${B.x + B.w} ${by}`;
+    } else {
+      const mid = (ax + bx) / 2;
+      d = `M${ax} ${ay} C${mid} ${ay}, ${mid} ${by}, ${bx} ${by}`;
+    }
+    const fb = B.x < A.x;
+    el('path', {
+      d, fill: 'none', stroke: fb ? '#f5a524' : '#2e4757',
+      'stroke-opacity': fb ? .6 : 1, 'stroke-width': fb ? 1.3 : 1.1,
+      'stroke-dasharray': fb ? '5 4' : null, 'marker-end': 'url(#ah)'
+    }, svg);
+  });
+
+  NODES.forEach(n => {
+    const g = el('g', {}, svg);
+    el('rect', {
+      x: n.x, y: n.y, width: n.w, height: n.h, rx: 3,
+      fill: '#0d1219', stroke: n.c, 'stroke-opacity': n.dash ? .5 : .8,
+      'stroke-width': 1, 'stroke-dasharray': n.dash ? '5 4' : null
+    }, g);
+    el('rect', { x: n.x, y: n.y, width: 3, height: n.h, fill: n.c, 'fill-opacity': n.dash ? .5 : .9 }, g);
+    const t1 = el('text', { x: n.x + 13, y: n.y + 22, fill: '#dbe7f0', 'font-size': 12.5, 'font-family': '-apple-system, Segoe UI, sans-serif' }, g);
+    t1.textContent = n.t;
+    const t2 = el('text', { x: n.x + 13, y: n.y + 38, fill: '#6d7b88', 'font-size': 10.5, 'font-family': 'ui-monospace, Menlo, monospace' }, g);
+    t2.textContent = n.s;
+  });
+
+  const lg = el('text', { x: 20, y: 442, fill: '#4f5d6b', 'font-size': 10.5, 'font-family': 'ui-monospace, Menlo, monospace', 'letter-spacing': '.1em' }, svg);
+  lg.textContent = 'SOLID = DATA FLOW   ·   AMBER DASHED = FEEDBACK   ·   DASHED BORDER = PROPOSED, NOT BUILT';
+})();
+</script>
+
+<script src="/static/js/static-mode.js"></script>
+<script>SENSE.boot();</script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Escape routes — SENSE AI</title>
+  <meta name="description" content="SENSE AI — confidence-aware occupancy intelligence and building-wide evacuation optimisation. Decision-support prototype.">
+  <link rel="stylesheet" href="/static/css/sense.css?v=static">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2306080b'/><circle cx='16' cy='16' r='9' fill='none' stroke='%2322d3ee' stroke-width='2.5'/><circle cx='16' cy='16' r='3' fill='%2322d3ee'/></svg>">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><b>SENSE&nbsp;AI</b><span>MVP&nbsp;SIMULATION</span></div>
+  <nav class="nav">
+    <a href="/index.html"            class="">Live view</a>
+    <a href="/occupancy.html"   class="">Who is inside</a>
+    <a href="/evacuation.html"  class="on">Escape routes</a>
+    <a href="/command.html"     class="">Firefighter view</a>
+    <a href="/twin.html"        class="">Building &amp; sensors</a>
+    <a href="/technology.html"  class="">How it works</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="livechip"><span class="dot" data-conn></span><span id="conn-clock">T+00:00</span></div>
+</div>
+
+<div class="shell">
+  
+
+<div style="max-width:760px;margin-bottom:20px">
+  <p class="eyebrow">Escape routes</p>
+  <h1 class="head">The shortest route is not always the fastest.</h1>
+  <p class="sub" style="margin-bottom:0">
+    If everyone heads for their nearest staircase, one of them jams and the other two stand
+    half empty — and the whole building takes longer to clear. SENSE AI works out how long each
+    route will really take once it is crowded, then splits people between all three. Press a
+    button below to break something and watch the routes move.
+  </p>
+</div>
+
+<div class="grid g-side">
+  <div class="stack">
+    <div class="panel accent">
+      <header><h3>Interventions</h3></header>
+      <div class="body stack" style="gap:7px">
+        <button class="primary" id="i-run">▶ Evacuate the building</button>
+        <button id="i-fire">Start a fire in Room 305</button>
+        <button id="i-crowd">Jam up Stair A</button>
+        <button id="i-block">Block the east-central corridor</button>
+        <button class="danger" id="i-reset">Start over</button>
+        <details class="fold" style="margin-top:4px">
+          <summary>Pick a room on the map first</summary>
+          <div class="foldbody stack" style="gap:6px">
+            <p class="hint" style="margin:0">Click any room on the map, then:</p>
+            <button id="i-block-sel">Block it off</button>
+            <button id="i-ignite-sel">Set it on fire</button>
+            <button id="i-replan">Recalculate now</button>
+            <div class="mono tiny mute" id="sel-label">selected: none</div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h3>Ready-made situations</h3></header>
+      <div class="body stack" style="gap:6px" id="scen"></div>
+    </div>
+
+    <div class="panel">
+      <div class="body" style="padding-top:2px">
+        <details class="fold" style="border-top:0">
+        <summary>For engineers — how a route is costed</summary>
+        <div class="foldbody">
+        <dl class="kv" style="font-size:11px">
+          <dt>Walking</dt><dd>length ÷ speed(density)</dd>
+          <dt>Speed</dt><dd>v₀·(1 − ρ/ρ_jam)</dd>
+          <dt>Queue</dt><dd>rises sharply above 85% of capacity</dd>
+          <dt>Capacity</dt><dd>1.30 p/s/m level · 0.90 stair</dd>
+          <dt>Hazard</dt><dd>(smoke − 0.22)^2.2 penalty</dd>
+          <dt>Blocked</dt><dd>smoke ≥ 0.82 or fire</dd>
+          <dt>Parcels</dt><dd>2 people per assignment step</dd>
+          <dt>Demand</dt><dd>upper bound of the occupancy range</dd>
+        </dl>
+        <p class="hint" style="margin:9px 0 0">
+          Flow capacities follow the usual egress rule of thumb — plausible planning numbers
+          for a simulation, not certified figures for a real building.
+        </p>
+        </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="narrator" id="narrator">
+      <span class="ico"></span>
+      <div class="txt" id="narr-text">Baseline allocation for the building at rest.<span class="sub" id="narr-sub">—</span></div>
+    </div>
+
+    <div class="metrics g-3">
+      <div class="metric cy"><div class="k">Time to get everyone out</div><div class="v" id="m-clear">—</div><div class="u">until the last person leaves</div></div>
+      <div class="metric"><div class="k">People given a route</div><div class="v" id="m-routed">—</div><div class="u" id="m-routed-u">right now</div></div>
+      <div class="metric"><div class="k">Times replanned</div><div class="v" id="m-cycles">—</div><div class="u">since the start</div></div>
+    </div>
+
+    <div class="planwrap">
+      <div id="plan"></div>
+      <div class="hud">
+        <div>Status <b id="hud-mode">All calm</b></div>
+        <div id="hud-t">T+00:00</div>
+        <div id="hud-why" style="max-width:230px;white-space:normal;text-align:right;margin-top:4px;color:var(--amber)"></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#22d3ee"></i>Sent to Stair A</span>
+        <span><i style="background:#8b93f8"></i>Sent to Stair B</span>
+        <span><i style="background:#34d399"></i>Sent to Stair C</span>
+        <span><i style="background:#f5a524"></i>Getting crowded</span>
+        <span><i style="background:#f04444"></i>Blocked or on fire</span>
+        <span>thicker line = more people</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="tabs" id="tabs">
+        <button data-pane="routes" class="on">Who goes where, and why</button>
+        <button data-pane="cmp">Plan vs what really happened</button>
+        <button data-pane="cores">How busy each stair is</button>
+        <span style="flex:1"></span>
+        <span class="pill" id="cmp-pill" style="align-self:center;margin-bottom:6px">—</span>
+      </div>
+      <div class="panel" style="border-top-left-radius:0">
+        <div class="body" style="padding:0">
+          <div class="tabpane on" id="pane-routes" style="max-height:330px;overflow-y:auto">
+            <table class="t"><thead><tr>
+              <th>From</th><th>Sent to</th><th class="num">People</th><th class="num">Takes</th><th>Why this way</th>
+            </tr></thead><tbody id="route-rows"></tbody></table>
+          </div>
+          <div class="tabpane" id="pane-cmp">
+            <table class="t"><thead><tr>
+              <th>Staircase</th><th class="num">We planned</th><th class="num">They actually used</th><th class="num">Difference</th>
+            </tr></thead><tbody id="cmp-rows"></tbody></table>
+          </div>
+          <div class="tabpane" id="pane-cores">
+            <table class="t"><thead><tr>
+              <th>Staircase</th><th class="num">Queueing</th><th class="num">On the stairs</th><th style="width:150px">How busy</th>
+            </tr></thead><tbody id="stair-rows"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+  <footer class="foot">
+    <strong style="color:var(--text-dim)">SENSE AI is a working demonstration, not a finished product.</strong>
+    The building, the people and the sensors in it are simulated. It is not an approved
+    fire-safety system, it has no safety certification, and it cannot promise that a fire
+    will be detected or that everyone will get out. Every people-count you see is an
+    estimate with a stated confidence, never an exact count. The escape routes are a
+    simulation on a simplified map of a building. The camera model is experimental, and any
+    accuracy figure quoted comes from the people who published that model, not from us.
+  </footer>
+</div>
+
+<script>window.BUILDING = {"devices": [{"future": false, "id": "CAM-301", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R301", "note": "", "status": "online"}, {"future": false, "id": "CAM-303", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R303", "note": "", "status": "online"}, {"future": false, "id": "CAM-304", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "CAM-305", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "CAM-306", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R306", "note": "", "status": "online"}, {"future": false, "id": "CAM-311", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R311", "note": "", "status": "online"}, {"future": false, "id": "CAM-313", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R313", "note": "", "status": "online"}, {"future": false, "id": "CAM-314", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R314", "note": "", "status": "online"}, {"future": false, "id": "CAM-316", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R316", "note": "", "status": "online"}, {"future": false, "id": "CAM-C1", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "CAM-C2", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "CAM-C3", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "CAM-C4", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "CAM-C5", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "PRS-301", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R301", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-302", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R302", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-303", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R303", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-304", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R304", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-305", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R305", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-306", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R306", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-311", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R311", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-312", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R312", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-313", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R313", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-314", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R314", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-315", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R315", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-316", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R316", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C1", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C1", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C2", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C2", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C3", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C3", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C4", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C4", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C5", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C5", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-302-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R302", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "PRS-312-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R312", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "PRS-315-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R315", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "SMK-301", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R301", "note": "", "status": "online"}, {"future": false, "id": "SMK-302", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R302", "note": "", "status": "online"}, {"future": false, "id": "SMK-303", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R303", "note": "", "status": "online"}, {"future": false, "id": "SMK-304", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "SMK-305", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "SMK-306", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R306", "note": "", "status": "online"}, {"future": false, "id": "SMK-311", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R311", "note": "", "status": "online"}, {"future": false, "id": "SMK-312", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R312", "note": "", "status": "online"}, {"future": false, "id": "SMK-313", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R313", "note": "", "status": "online"}, {"future": false, "id": "SMK-314", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R314", "note": "", "status": "online"}, {"future": false, "id": "SMK-315", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R315", "note": "", "status": "online"}, {"future": false, "id": "SMK-316", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R316", "note": "", "status": "online"}, {"future": false, "id": "SMK-C1", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "SMK-C2", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "SMK-C3", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "SMK-C4", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "SMK-C5", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "HEAT-304", "kind": "heat", "model": "fixed-temperature heat detector", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "HEAT-305", "kind": "heat", "model": "fixed-temperature heat detector", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "SPK-C1", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "SPK-C2", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "SPK-C3", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "SPK-C4", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "SPK-C5", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "SPK-A", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-A", "note": "", "status": "online"}, {"future": false, "id": "SPK-B", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-B", "note": "", "status": "online"}, {"future": false, "id": "SPK-C", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-C", "note": "", "status": "online"}, {"future": true, "id": "LED-C1", "kind": "led", "model": "ceiling directional LED strip", "node": "C1", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C2", "kind": "led", "model": "ceiling directional LED strip", "node": "C2", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C3", "kind": "led", "model": "ceiling directional LED strip", "node": "C3", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C4", "kind": "led", "model": "ceiling directional LED strip", "node": "C4", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C5", "kind": "led", "model": "ceiling directional LED strip", "node": "C5", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-A", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-A", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-B", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-B", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-C", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "PANEL-3", "kind": "panel", "model": "fire alarm panel interface (BACnet / Modbus)", "node": "C3", "note": "proposed integration with building systems", "status": "online"}], "edges": [{"a": "C1", "b": "C2", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C2", "b": "C3", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C3", "b": "C4", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C4", "b": "C5", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "R301", "b": "C1", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R302", "b": "C2", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R303", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R304", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R305", "b": "C4", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R306", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R311", "b": "C1", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R312", "b": "C2", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R313", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R314", "b": "C4", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R315", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R316", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "C1", "b": "STAIR-A", "capacity": 1.56, "kind": "level", "length_m": 8.0, "width_m": 1.2}, {"a": "C5", "b": "STAIR-B", "capacity": 1.82, "kind": "level", "length_m": 8.0, "width_m": 1.4}, {"a": "C3", "b": "STAIR-C", "capacity": 2.34, "kind": "level", "length_m": 8.0, "width_m": 1.8}, {"a": "STAIR-A", "b": "EXIT-A", "capacity": 1.08, "kind": "stair", "length_m": 24.0, "width_m": 1.2}, {"a": "STAIR-B", "b": "EXIT-B", "capacity": 1.26, "kind": "stair", "length_m": 24.0, "width_m": 1.4}, {"a": "STAIR-C", "b": "EXIT-C", "capacity": 1.62, "kind": "stair", "length_m": 24.0, "width_m": 1.8}], "exits": ["EXIT-A", "EXIT-B", "EXIT-C"], "floors": [{"floor": 5, "modelled": false, "name": "Level 5 \u2014 offices", "population": 14}, {"floor": 4, "modelled": false, "name": "Level 4 \u2014 offices", "population": 16}, {"floor": 3, "modelled": true, "name": "Level 3 \u2014 offices and plant", "population": 41}, {"floor": 2, "modelled": false, "name": "Level 2 \u2014 offices", "population": 9}, {"floor": 1, "modelled": false, "name": "Level 1 \u2014 reception", "population": 4}], "name": "Tower B \u2014 Innovation Park", "nodes": {"C1": {"area_m2": 108.5, "cx": 176.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "West corridor", "id": "C1", "kind": "corridor", "label": "C1", "name": "West corridor", "use": "circulation", "w": 148, "x": 102, "y": 245.0}, "C2": {"area_m2": 117.3, "cx": 330.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "West-central corridor", "id": "C2", "kind": "corridor", "label": "C2", "name": "West-central corridor", "use": "circulation", "w": 160, "x": 250, "y": 245.0}, "C3": {"area_m2": 117.3, "cx": 490.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "Central corridor", "id": "C3", "kind": "corridor", "label": "C3", "name": "Central corridor", "use": "circulation", "w": 160, "x": 410, "y": 245.0}, "C4": {"area_m2": 117.3, "cx": 650.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "East-central corridor", "id": "C4", "kind": "corridor", "label": "C4", "name": "East-central corridor", "use": "circulation", "w": 160, "x": 570, "y": 245.0}, "C5": {"area_m2": 123.2, "cx": 814.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "East corridor", "id": "C5", "kind": "corridor", "label": "C5", "name": "East corridor", "use": "circulation", "w": 168, "x": 730, "y": 245.0}, "EXIT-A": {"area_m2": 20, "cx": 71.0, "cy": 500.0, "floor": 0, "h": 40, "human": "Exit A \u2014 west door to the street", "id": "EXIT-A", "kind": "exit", "label": "EXIT A", "name": "Exit A \u2014 west door", "use": "core", "w": 62, "x": 40, "y": 480}, "EXIT-B": {"area_m2": 20, "cx": 929.0, "cy": 500.0, "floor": 0, "h": 40, "human": "Exit B \u2014 east door to the yard", "id": "EXIT-B", "kind": "exit", "label": "EXIT B", "name": "Exit B \u2014 east yard", "use": "core", "w": 62, "x": 898, "y": 480}, "EXIT-C": {"area_m2": 40, "cx": 413.0, "cy": 500.5, "floor": 0, "h": 39, "human": "Exit C \u2014 main lobby, the main way out", "id": "EXIT-C", "kind": "exit", "label": "EXIT C", "name": "Exit C \u2014 main lobby", "use": "core", "w": 110, "x": 358, "y": 481}, "R301": {"area_m2": 74, "cx": 168.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 301 \u2014 open-plan desks", "id": "R301", "kind": "room", "label": "301", "name": "Open desk north", "use": "office", "w": 132, "x": 102, "y": 62.0}, "R302": {"area_m2": 74, "cx": 300.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 302 \u2014 meeting room", "id": "R302", "kind": "room", "label": "302", "name": "Meeting 302", "use": "meeting", "w": 132, "x": 234, "y": 62.0}, "R303": {"area_m2": 74, "cx": 432.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 303 \u2014 open-plan desks", "id": "R303", "kind": "room", "label": "303", "name": "Open desk 303", "use": "office", "w": 132, "x": 366, "y": 62.0}, "R304": {"area_m2": 75, "cx": 564.5, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 304 \u2014 lab", "id": "R304", "kind": "room", "label": "304", "name": "Lab 304", "use": "lab", "w": 133, "x": 498, "y": 62.0}, "R305": {"area_m2": 75, "cx": 697.5, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 305 \u2014 plant and server room", "id": "R305", "kind": "room", "label": "305", "name": "Plant / server 305", "use": "lab", "w": 133, "x": 631, "y": 62.0}, "R306": {"area_m2": 75, "cx": 831.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 306 \u2014 open-plan desks", "id": "R306", "kind": "room", "label": "306", "name": "Open desk east", "use": "office", "w": 134, "x": 764, "y": 62.0}, "R311": {"area_m2": 63, "cx": 166.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 311 \u2014 open-plan desks", "id": "R311", "kind": "room", "label": "311", "name": "Open desk south", "use": "office", "w": 128, "x": 102, "y": 311.0}, "R312": {"area_m2": 63, "cx": 294.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 312 \u2014 meeting room", "id": "R312", "kind": "room", "label": "312", "name": "Meeting 312", "use": "meeting", "w": 128, "x": 230, "y": 311.0}, "R313": {"area_m2": 52, "cx": 520.5, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 313 \u2014 storeroom", "id": "R313", "kind": "room", "label": "313", "name": "Store 313", "use": "office", "w": 105, "x": 468, "y": 311.0}, "R314": {"area_m2": 64, "cx": 638.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 314 \u2014 open-plan desks", "id": "R314", "kind": "room", "label": "314", "name": "Open desk 314", "use": "office", "w": 130, "x": 573, "y": 311.0}, "R315": {"area_m2": 48, "cx": 752.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 315 \u2014 quiet room", "id": "R315", "kind": "room", "label": "315", "name": "Quiet room 315", "use": "office", "w": 98, "x": 703, "y": 311.0}, "R316": {"area_m2": 48, "cx": 849.5, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 316 \u2014 meeting room", "id": "R316", "kind": "room", "label": "316", "name": "Meeting 316", "use": "meeting", "w": 97, "x": 801, "y": 311.0}, "STAIR-A": {"area_m2": 24, "cx": 71.0, "cy": 266.5, "floor": 3, "h": 409, "human": "Stair A \u2014 west, the narrow one", "id": "STAIR-A", "kind": "stair", "label": "A", "name": "Stair A (west core)", "use": "core", "w": 62, "x": 40, "y": 62.0}, "STAIR-B": {"area_m2": 24, "cx": 929.0, "cy": 266.5, "floor": 3, "h": 409, "human": "Stair B \u2014 east", "id": "STAIR-B", "kind": "stair", "label": "B", "name": "Stair B (east core)", "use": "core", "w": 62, "x": 898, "y": 62.0}, "STAIR-C": {"area_m2": 30, "cx": 413.0, "cy": 391.0, "floor": 3, "h": 160, "human": "Stair C \u2014 central, the widest", "id": "STAIR-C", "kind": "stair", "label": "C", "name": "Stair C (central core)", "use": "core", "w": 110, "x": 358, "y": 311.0}}, "stairs": ["STAIR-A", "STAIR-B", "STAIR-C"]};</script>
+<script src="/static/js/sense.js?v=static"></script>
+<script src="/static/js/floorplan.js?v=static"></script>
+<script>
+  SENSE.on(s => {
+    const c = document.getElementById('conn-clock');
+    if (c) c.textContent = SENSE.fmt.clock(s.t);
+    document.querySelectorAll('[data-conn]').forEach(n => {
+      n.classList.toggle('alarm', s.mode === 'clearing' || s.mode === 'incident');
+    });
+  });
+</script>
+
+<script>
+(function () {
+  // A missing node must never take the rest of the render down with it —
+  // that is exactly how one removed element blanked two tables.
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  let selected = null;
+
+  const plan = new FloorPlan('#plan', window.BUILDING, {
+    onPick: id => { selected = id; $('sel-label').textContent = 'picked: ' + SENSE.fmt.place(id); }
+  });
+
+  $('i-run').onclick    = () => SENSE.control('start');
+  $('i-fire').onclick   = () => SENSE.control('ignite', { node: 'R305' });
+  $('i-crowd').onclick  = () => SENSE.control('crowd', { stair: 'STAIR-A' });
+  $('i-block').onclick  = () => SENSE.control('block', { node: 'C4' });
+  $('i-replan').onclick = () => SENSE.control('replan');
+  $('i-reset').onclick  = () => SENSE.control('reset');
+  $('i-block-sel').onclick  = () => selected && SENSE.control('block', { node: selected });
+  $('i-ignite-sel').onclick = () => selected && SENSE.control('ignite', { node: selected });
+
+  fetch('/api/scenarios').then(r => r.json()).then(list => {
+    const host = $('scen');
+    list.forEach(sc => {
+      const b = SENSE.h('button', { style: 'text-align:left;text-transform:none;letter-spacing:0;font-size:11.5px;line-height:1.4' });
+      b.innerHTML = `<b class="mono" style="letter-spacing:.1em;text-transform:uppercase;font-size:10px;color:var(--cyan)">${sc.id}</b><br><span class="dim">${SENSE.escape(sc.label)}</span>`;
+      b.onclick = () => SENSE.control('scenario', { name: sc.id });
+      host.appendChild(b);
+    });
+  });
+
+  const MODES = { normal: 'All calm', incident: 'Fire detected', clearing: 'Evacuating', cleared: 'Building clear' };
+
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $('tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    ['routes', 'cmp', 'cores'].forEach(p => $('pane-' + p).classList.toggle('on', p === b.dataset.pane));
+  });
+
+  SENSE.on(s => {
+    plan.render(s);
+    $('hud-mode').textContent = MODES[s.mode] || 'MONITOR';
+    $('hud-t').textContent = SENSE.fmt.clock(s.t);
+    $('hud-why').textContent = s.replan_reason || '';
+
+    const p = s.plan || {};
+    const routed = (p.routes || []).reduce((a, r) => a + r.people, 0);
+    const unrout = Object.values(p.unroutable || {}).reduce((a, b) => a + b, 0);
+    $('m-clear').textContent  = SENSE.fmt.secs(s.clearance_estimate);
+    $('m-routed').textContent = routed;
+    $('m-routed-u').textContent = unrout ? unrout + ' have no way out' : 'right now';
+    $('m-routed').parentElement.className = 'metric ' + (unrout ? 'bad' : '');
+    $('m-cycles').textContent = s.replan_count;
+
+    const cm = s.comparison || {};
+    const worst = Object.entries(s.stairs || {}).sort((a, b) => b[1].utilisation - a[1].utilisation)[0];
+    let tone = '', line = '', sub = s.replan_reason || '';
+    if (unrout) { tone = 'bad'; line = `<b>${unrout} people are trapped</b> — there is no way out for them.`; }
+    else if (cm.replan_required) { tone = 'bad'; line = `People are <b>${SENSE.fmt.pct(cm.max_divergence)} off the plan</b> — working out a new one.`; }
+    else if (worst && worst[1].utilisation > 1) { tone = 'warn'; line = `<b>${SENSE.fmt.placeShort(worst[0])} is jammed</b> — sending people the other way.`; }
+    else if (s.mode === 'cleared') { tone = 'ok'; line = `Everyone is out, in <b>${SENSE.fmt.clock(s.t).replace('T+','')}</b>.`; }
+    else if (s.mode === 'normal') { line = `Plan ready — <b>${routed} people</b> split across three staircases.`; sub = 'Nothing has happened yet. Press a button to break something.'; }
+    else { tone = 'warn'; line = `Evacuating — <b>${routed} people</b> have a route right now.`; }
+    $('narrator').className = 'narrator ' + tone;
+    $('narr-text').innerHTML = line + `<span class="sub">${SENSE.escape(sub)}</span>`;
+
+    const tb = $('route-rows'); tb.innerHTML = '';
+    (p.routes || []).forEach(r => {
+      const colour = { 'STAIR-A': '#22d3ee', 'STAIR-B': '#8b93f8', 'STAIR-C': '#34d399' }[r.stair] || '#7b8997';
+      const tr = SENSE.h('tr', {}, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(r.origin) }),
+        SENSE.h('td', { html: `<span style="color:${colour}">${SENSE.fmt.placeShort(r.stair)}</span> <span class="mute tiny">→ ${SENSE.fmt.placeShort(r.exit)}</span>` }),
+        SENSE.h('td', { class: 'num', text: r.people }),
+        SENSE.h('td', { class: 'num mute', text: SENSE.fmt.secs(r.travel_time) }),
+        SENSE.h('td', { class: 'tiny dim', text: r.reason || '—' })
+      ]);
+      tr.onmouseenter = () => { plan.clearOverlay(); plan.drawPath(r.path, colour, r.people + 'p'); };
+      tr.onmouseleave = () => plan.clearOverlay();
+      tb.appendChild(tr);
+    });
+    if (!(p.routes || []).length) tb.innerHTML = '<tr><td colspan="5" class="hint" style="padding:14px">Nobody left to route.</td></tr>';
+
+    const cmp = s.comparison || {};
+    const cp = $('cmp-pill');
+    if (!cmp.observing) { cp.textContent = 'Nobody moving yet'; cp.className = 'pill'; }
+    else if (cmp.replan_required) { cp.textContent = 'Not following the plan'; cp.className = 'pill bad'; }
+    else { cp.textContent = 'Following the plan'; cp.className = 'pill ok'; }
+
+    const cb = $('cmp-rows'); cb.innerHTML = '';
+    (cmp.rows || []).forEach(r => {
+      const d = r.divergence || 0;
+      cb.appendChild(SENSE.h('tr', { class: Math.abs(d) > .18 ? 'hot' : '' }, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(r.stair) }),
+        SENSE.h('td', { class: 'num', text: SENSE.fmt.pct(r.planned_share) }),
+        SENSE.h('td', { class: 'num', text: r.observed_share === null ? '—' : SENSE.fmt.pct(r.observed_share) }),
+        SENSE.h('td', { class: 'num', html: `<span style="color:${Math.abs(d) > .18 ? 'var(--red)' : Math.abs(d) > .08 ? 'var(--amber)' : 'var(--text-mute)'}">${d > 0 ? '+' : ''}${Math.round(d * 100)}%</span>` })
+      ]));
+    });
+    if (!(cmp.rows || []).length) cb.innerHTML = '<tr><td colspan="4" class="hint" style="padding:14px">Nothing to compare yet.</td></tr>';
+
+    const sb = $('stair-rows'); sb.innerHTML = '';
+    Object.keys(s.stairs || {}).sort().forEach(id => {
+      const st = s.stairs[id], load = SENSE.fmt.load(st.utilisation);
+      sb.appendChild(SENSE.h('tr', { class: st.utilisation > 1 ? 'hot' : '' }, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(id) }),
+        SENSE.h('td', { class: 'num', text: st.queue.toFixed(0) }),
+        SENSE.h('td', { class: 'num mute', text: st.descending.toFixed(0) }),
+        SENSE.h('td', {}, [
+          SENSE.h('div', { class: 'bar ' + (load.cls === 'bad' ? 'r' : load.cls === 'warn' ? 'a' : 'g') },
+            [SENSE.h('i', { style: 'width:' + Math.min(st.utilisation * 100, 100) + '%' })]),
+          SENSE.h('div', { class: 'tiny', style: 'margin-top:3px;color:' + (load.cls === 'bad' ? 'var(--red)' : load.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'), text: load.word })
+        ])
+      ]));
+    });
+  });
+})();
+</script>
+
+<script src="/static/js/static-mode.js"></script>
+<script>SENSE.boot();</script>
+</body>
+</html>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Who is inside — SENSE AI</title>
+  <meta name="description" content="SENSE AI — confidence-aware occupancy intelligence and building-wide evacuation optimisation. Decision-support prototype.">
+  <link rel="stylesheet" href="/static/css/sense.css?v=static">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2306080b'/><circle cx='16' cy='16' r='9' fill='none' stroke='%2322d3ee' stroke-width='2.5'/><circle cx='16' cy='16' r='3' fill='%2322d3ee'/></svg>">
+</head>
+<body>
+<div class="topbar">
+  <div class="brand"><b>SENSE&nbsp;AI</b><span>MVP&nbsp;SIMULATION</span></div>
+  <nav class="nav">
+    <a href="/index.html"            class="">Live view</a>
+    <a href="/occupancy.html"   class="on">Who is inside</a>
+    <a href="/evacuation.html"  class="">Escape routes</a>
+    <a href="/command.html"     class="">Firefighter view</a>
+    <a href="/twin.html"        class="">Building &amp; sensors</a>
+    <a href="/technology.html"  class="">How it works</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="livechip"><span class="dot" data-conn></span><span id="conn-clock">T+00:00</span></div>
+</div>
+
+<div class="shell">
+  
+
+<div style="max-width:760px;margin-bottom:20px">
+  <p class="eyebrow">Who is inside</p>
+  <h1 class="head">Know where people are.</h1>
+  <p class="sub" style="margin-bottom:0">
+    A camera counts people well — until smoke fills the room, and then it sees nothing. A radar
+    sensor sees straight through smoke, but it can never give an exact number. So we use both,
+    and each one tells us how sure it is. When they are not sure enough between them, we say
+    <em>“4 to 6 people”</em> instead of pretending to know it is 5.
+  </p>
+</div>
+
+<div class="grid g-main">
+  <div class="stack airy">
+
+    <div class="panel">
+      <header>
+        <h3>People in each room</h3><div class="spacer"></div>
+        <span class="tiny mute" id="fused-total">—</span>
+        <button id="tog-empty" style="padding:4px 9px">Show empty rooms</button>
+      </header>
+      <div class="body" style="padding:0">
+        <table class="t">
+          <thead><tr>
+            <th>Room</th><th class="num">People</th><th style="width:140px">How sure we are</th>
+            <th>Who is telling us</th><th>Air</th>
+          </tr></thead>
+          <tbody id="occ-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel accent">
+      <header><h3>Where that number came from</h3><div class="spacer"></div>
+        <span class="tiny mute">click any room above, or on the map</span></header>
+      <div class="body"><div id="fusion-detail">
+        <div class="hint">Select a space.</div>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <header><h3>What the camera actually sees</h3><div class="spacer"></div>
+        <span class="pill ok" id="vis-backend">
+          YOLO LIVE</span>
+      </header>
+      <div class="body stack">
+        <div class="row wrap">
+          <button class="primary" id="btn-sample">▶ Play the example</button>
+          <input type="file" id="clip" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo">
+          <button id="btn-analyse">Use my own video</button>
+        </div>
+        <p class="hint" style="margin:0" id="vis-detail">
+          The sample is real footage with real people in it, hazed over 14 seconds. YOLO runs
+          on it frame by frame and the boxes drawn on the video are its actual output — watch
+          the count fall and the confidence drop as the smoke closes in. Your own clips work
+          the same way; they need real people in frame, not animation.
+        </p>
+
+        <div class="vidstage" id="stage">
+          <div class="empty" style="position:static;min-height:200px">
+            Press <b style="color:var(--cyan)">Play the example</b> to watch the camera
+            lose people as smoke fills the room.
+          </div>
+        </div>
+
+        <div class="metrics g-4">
+          <div class="metric"><div class="k">People it can see</div><div class="v" id="vf-people">—</div><div class="u" id="vf-people-u">right now</div></div>
+          <div class="metric"><div class="k">How sure it is</div><div class="v" id="vf-conf">—</div><div class="u">about what it found</div></div>
+          <div class="metric"><div class="k">How much smoke</div><div class="v" id="vf-obsc">—</div><div class="u">blocking the view</div></div>
+          <div class="metric"><div class="k">Fire or smoke?</div><div class="v" id="vf-fire">—</div><div class="u">spotted in the picture</div></div>
+        </div>
+
+        <div class="note warn tiny" id="vis-verdict">
+          Nothing analysed yet.
+        </div>
+        <details class="fold">
+          <summary>For engineers — the detection model and its limits</summary>
+          <div class="foldbody"><div class="disclaimer">Experimental detection model. Published metrics are the model author's self-reported validation results, not certification and not evidence of real-world fire-safety performance.<br><br>
+            Backend: <span class="mono">Ultralytics YOLO — person, fire/smoke</span></div></div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel accent">
+      <header><h3>Try breaking it</h3></header>
+      <div class="body stack" style="gap:11px">
+        <p class="hint" style="margin:0">
+          Fill the building with smoke and watch the cameras go blind. The numbers turn into
+          ranges, and the radar takes over the counting.
+        </p>
+        <input type="range" id="smoke" min="0" max="100" step="5" value="0">
+        <div class="row"><span class="tiny mute">How much smoke</span>
+          <span class="mono" id="smoke-v" style="color:var(--amber)">0%</span></div>
+        <div class="btnrow">
+          <button id="btn-smoke-heavy">Fill with smoke</button>
+          <button id="btn-smoke-clear">Clear the air</button>
+        </div>
+        <button id="btn-camfail">Switch off three cameras</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h3>Live map</h3></header>
+      <div class="body" style="padding:7px"><div id="mini"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="body" style="padding-top:4px">
+        <details class="fold" open style="border-top:0">
+          <summary>Camera vs radar — what each one is good at</summary>
+          <div class="foldbody stack" style="gap:11px">
+            <div>
+              <span class="pill cy">Camera</span>
+              <p class="hint" style="margin:5px 0 0">
+                Counts accurately when the air is clear. In smoke it does not just get unsure —
+                it stops seeing people at all. A blinded camera can only ever <em>miss</em>
+                people, never invent them, so we treat its count as a <b>minimum</b>: it can
+                push our estimate up, never down.
+              </p>
+            </div>
+            <div>
+              <span class="pill ok">Radar</span>
+              <p class="hint" style="margin:5px 0 0">
+                Radar or heat sensing. It picks up movement — even breathing — straight through
+                smoke. But it is not a counter: two people standing close together can look like
+                one, and furniture confuses it. It does <b>not</b> see through walls, and we
+                never treat its number as exact.
+              </p>
+            </div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>For engineers — the fusion maths</summary>
+          <div class="foldbody">
+            <p class="hint" style="margin:0">
+              Each source's weight is its precision — <span class="mono">conf² / (1 − conf)</span>,
+              the reciprocal of its variance. Fused confidence is noisy-OR across independent
+              sources. Below 80% the estimate is published as a range, and the planner routes
+              for the top of that range rather than the middle.
+            </p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+  <footer class="foot">
+    <strong style="color:var(--text-dim)">SENSE AI is a working demonstration, not a finished product.</strong>
+    The building, the people and the sensors in it are simulated. It is not an approved
+    fire-safety system, it has no safety certification, and it cannot promise that a fire
+    will be detected or that everyone will get out. Every people-count you see is an
+    estimate with a stated confidence, never an exact count. The escape routes are a
+    simulation on a simplified map of a building. The camera model is experimental, and any
+    accuracy figure quoted comes from the people who published that model, not from us.
+  </footer>
+</div>
+
+<script>window.BUILDING = {"devices": [{"future": false, "id": "CAM-301", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R301", "note": "", "status": "online"}, {"future": false, "id": "CAM-303", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R303", "note": "", "status": "online"}, {"future": false, "id": "CAM-304", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "CAM-305", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "CAM-306", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R306", "note": "", "status": "online"}, {"future": false, "id": "CAM-311", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R311", "note": "", "status": "online"}, {"future": false, "id": "CAM-313", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R313", "note": "", "status": "online"}, {"future": false, "id": "CAM-314", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R314", "note": "", "status": "online"}, {"future": false, "id": "CAM-316", "kind": "camera", "model": "edge-AI camera / person detection", "node": "R316", "note": "", "status": "online"}, {"future": false, "id": "CAM-C1", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "CAM-C2", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "CAM-C3", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "CAM-C4", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "CAM-C5", "kind": "camera", "model": "edge-AI camera / person detection", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "PRS-301", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R301", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-302", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R302", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-303", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R303", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-304", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R304", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-305", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R305", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-306", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R306", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-311", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R311", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-312", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R312", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-313", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R313", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-314", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R314", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-315", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R315", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-316", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "R316", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C1", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C1", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C2", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C2", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C3", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C3", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C4", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C4", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-C5", "kind": "presence", "model": "60 GHz mmWave presence array", "node": "C5", "note": "counts moving and micro-motion signatures; needs per-room calibration", "status": "online"}, {"future": false, "id": "PRS-302-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R302", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "PRS-312-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R312", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "PRS-315-T", "kind": "presence", "model": "thermopile array (low-resolution IR)", "node": "R315", "note": "fallback where mmWave coverage is partial", "status": "online"}, {"future": false, "id": "SMK-301", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R301", "note": "", "status": "online"}, {"future": false, "id": "SMK-302", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R302", "note": "", "status": "online"}, {"future": false, "id": "SMK-303", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R303", "note": "", "status": "online"}, {"future": false, "id": "SMK-304", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "SMK-305", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "SMK-306", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R306", "note": "", "status": "online"}, {"future": false, "id": "SMK-311", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R311", "note": "", "status": "online"}, {"future": false, "id": "SMK-312", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R312", "note": "", "status": "online"}, {"future": false, "id": "SMK-313", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R313", "note": "", "status": "online"}, {"future": false, "id": "SMK-314", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R314", "note": "", "status": "online"}, {"future": false, "id": "SMK-315", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R315", "note": "", "status": "online"}, {"future": false, "id": "SMK-316", "kind": "smoke", "model": "photo-optical smoke detector", "node": "R316", "note": "", "status": "online"}, {"future": false, "id": "SMK-C1", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "SMK-C2", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "SMK-C3", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "SMK-C4", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "SMK-C5", "kind": "smoke", "model": "photo-optical smoke detector", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "HEAT-304", "kind": "heat", "model": "fixed-temperature heat detector", "node": "R304", "note": "", "status": "online"}, {"future": false, "id": "HEAT-305", "kind": "heat", "model": "fixed-temperature heat detector", "node": "R305", "note": "", "status": "online"}, {"future": false, "id": "SPK-C1", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C1", "note": "", "status": "online"}, {"future": false, "id": "SPK-C2", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C2", "note": "", "status": "online"}, {"future": false, "id": "SPK-C3", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C3", "note": "", "status": "online"}, {"future": false, "id": "SPK-C4", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C4", "note": "", "status": "online"}, {"future": false, "id": "SPK-C5", "kind": "speaker", "model": "zoned voice-alarm speaker", "node": "C5", "note": "", "status": "online"}, {"future": false, "id": "SPK-A", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-A", "note": "", "status": "online"}, {"future": false, "id": "SPK-B", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-B", "note": "", "status": "online"}, {"future": false, "id": "SPK-C", "kind": "speaker", "model": "stair-core voice-alarm speaker", "node": "STAIR-C", "note": "", "status": "online"}, {"future": true, "id": "LED-C1", "kind": "led", "model": "ceiling directional LED strip", "node": "C1", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C2", "kind": "led", "model": "ceiling directional LED strip", "node": "C2", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C3", "kind": "led", "model": "ceiling directional LED strip", "node": "C3", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C4", "kind": "led", "model": "ceiling directional LED strip", "node": "C4", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C5", "kind": "led", "model": "ceiling directional LED strip", "node": "C5", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-A", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-A", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-B", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-B", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "LED-C", "kind": "led", "model": "stair-entry directional LED", "node": "STAIR-C", "note": "proposed future guidance output", "status": "online"}, {"future": true, "id": "PANEL-3", "kind": "panel", "model": "fire alarm panel interface (BACnet / Modbus)", "node": "C3", "note": "proposed integration with building systems", "status": "online"}], "edges": [{"a": "C1", "b": "C2", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C2", "b": "C3", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C3", "b": "C4", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "C4", "b": "C5", "capacity": 3.12, "kind": "level", "length_m": 12.0, "width_m": 2.4}, {"a": "R301", "b": "C1", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R302", "b": "C2", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R303", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R304", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R305", "b": "C4", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R306", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R311", "b": "C1", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R312", "b": "C2", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R313", "b": "C3", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R314", "b": "C4", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R315", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "R316", "b": "C5", "capacity": 1.43, "kind": "door", "length_m": 6.0, "width_m": 1.1}, {"a": "C1", "b": "STAIR-A", "capacity": 1.56, "kind": "level", "length_m": 8.0, "width_m": 1.2}, {"a": "C5", "b": "STAIR-B", "capacity": 1.82, "kind": "level", "length_m": 8.0, "width_m": 1.4}, {"a": "C3", "b": "STAIR-C", "capacity": 2.34, "kind": "level", "length_m": 8.0, "width_m": 1.8}, {"a": "STAIR-A", "b": "EXIT-A", "capacity": 1.08, "kind": "stair", "length_m": 24.0, "width_m": 1.2}, {"a": "STAIR-B", "b": "EXIT-B", "capacity": 1.26, "kind": "stair", "length_m": 24.0, "width_m": 1.4}, {"a": "STAIR-C", "b": "EXIT-C", "capacity": 1.62, "kind": "stair", "length_m": 24.0, "width_m": 1.8}], "exits": ["EXIT-A", "EXIT-B", "EXIT-C"], "floors": [{"floor": 5, "modelled": false, "name": "Level 5 \u2014 offices", "population": 14}, {"floor": 4, "modelled": false, "name": "Level 4 \u2014 offices", "population": 16}, {"floor": 3, "modelled": true, "name": "Level 3 \u2014 offices and plant", "population": 41}, {"floor": 2, "modelled": false, "name": "Level 2 \u2014 offices", "population": 9}, {"floor": 1, "modelled": false, "name": "Level 1 \u2014 reception", "population": 4}], "name": "Tower B \u2014 Innovation Park", "nodes": {"C1": {"area_m2": 108.5, "cx": 176.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "West corridor", "id": "C1", "kind": "corridor", "label": "C1", "name": "West corridor", "use": "circulation", "w": 148, "x": 102, "y": 245.0}, "C2": {"area_m2": 117.3, "cx": 330.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "West-central corridor", "id": "C2", "kind": "corridor", "label": "C2", "name": "West-central corridor", "use": "circulation", "w": 160, "x": 250, "y": 245.0}, "C3": {"area_m2": 117.3, "cx": 490.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "Central corridor", "id": "C3", "kind": "corridor", "label": "C3", "name": "Central corridor", "use": "circulation", "w": 160, "x": 410, "y": 245.0}, "C4": {"area_m2": 117.3, "cx": 650.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "East-central corridor", "id": "C4", "kind": "corridor", "label": "C4", "name": "East-central corridor", "use": "circulation", "w": 160, "x": 570, "y": 245.0}, "C5": {"area_m2": 123.2, "cx": 814.0, "cy": 278.0, "floor": 3, "h": 66.0, "human": "East corridor", "id": "C5", "kind": "corridor", "label": "C5", "name": "East corridor", "use": "circulation", "w": 168, "x": 730, "y": 245.0}, "EXIT-A": {"area_m2": 20, "cx": 71.0, "cy": 500.0, "floor": 0, "h": 40, "human": "Exit A \u2014 west door to the street", "id": "EXIT-A", "kind": "exit", "label": "EXIT A", "name": "Exit A \u2014 west door", "use": "core", "w": 62, "x": 40, "y": 480}, "EXIT-B": {"area_m2": 20, "cx": 929.0, "cy": 500.0, "floor": 0, "h": 40, "human": "Exit B \u2014 east door to the yard", "id": "EXIT-B", "kind": "exit", "label": "EXIT B", "name": "Exit B \u2014 east yard", "use": "core", "w": 62, "x": 898, "y": 480}, "EXIT-C": {"area_m2": 40, "cx": 413.0, "cy": 500.5, "floor": 0, "h": 39, "human": "Exit C \u2014 main lobby, the main way out", "id": "EXIT-C", "kind": "exit", "label": "EXIT C", "name": "Exit C \u2014 main lobby", "use": "core", "w": 110, "x": 358, "y": 481}, "R301": {"area_m2": 74, "cx": 168.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 301 \u2014 open-plan desks", "id": "R301", "kind": "room", "label": "301", "name": "Open desk north", "use": "office", "w": 132, "x": 102, "y": 62.0}, "R302": {"area_m2": 74, "cx": 300.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 302 \u2014 meeting room", "id": "R302", "kind": "room", "label": "302", "name": "Meeting 302", "use": "meeting", "w": 132, "x": 234, "y": 62.0}, "R303": {"area_m2": 74, "cx": 432.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 303 \u2014 open-plan desks", "id": "R303", "kind": "room", "label": "303", "name": "Open desk 303", "use": "office", "w": 132, "x": 366, "y": 62.0}, "R304": {"area_m2": 75, "cx": 564.5, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 304 \u2014 lab", "id": "R304", "kind": "room", "label": "304", "name": "Lab 304", "use": "lab", "w": 133, "x": 498, "y": 62.0}, "R305": {"area_m2": 75, "cx": 697.5, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 305 \u2014 plant and server room", "id": "R305", "kind": "room", "label": "305", "name": "Plant / server 305", "use": "lab", "w": 133, "x": 631, "y": 62.0}, "R306": {"area_m2": 75, "cx": 831.0, "cy": 153.5, "floor": 3, "h": 183.0, "human": "Room 306 \u2014 open-plan desks", "id": "R306", "kind": "room", "label": "306", "name": "Open desk east", "use": "office", "w": 134, "x": 764, "y": 62.0}, "R311": {"area_m2": 63, "cx": 166.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 311 \u2014 open-plan desks", "id": "R311", "kind": "room", "label": "311", "name": "Open desk south", "use": "office", "w": 128, "x": 102, "y": 311.0}, "R312": {"area_m2": 63, "cx": 294.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 312 \u2014 meeting room", "id": "R312", "kind": "room", "label": "312", "name": "Meeting 312", "use": "meeting", "w": 128, "x": 230, "y": 311.0}, "R313": {"area_m2": 52, "cx": 520.5, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 313 \u2014 storeroom", "id": "R313", "kind": "room", "label": "313", "name": "Store 313", "use": "office", "w": 105, "x": 468, "y": 311.0}, "R314": {"area_m2": 64, "cx": 638.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 314 \u2014 open-plan desks", "id": "R314", "kind": "room", "label": "314", "name": "Open desk 314", "use": "office", "w": 130, "x": 573, "y": 311.0}, "R315": {"area_m2": 48, "cx": 752.0, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 315 \u2014 quiet room", "id": "R315", "kind": "room", "label": "315", "name": "Quiet room 315", "use": "office", "w": 98, "x": 703, "y": 311.0}, "R316": {"area_m2": 48, "cx": 849.5, "cy": 391.0, "floor": 3, "h": 160.0, "human": "Room 316 \u2014 meeting room", "id": "R316", "kind": "room", "label": "316", "name": "Meeting 316", "use": "meeting", "w": 97, "x": 801, "y": 311.0}, "STAIR-A": {"area_m2": 24, "cx": 71.0, "cy": 266.5, "floor": 3, "h": 409, "human": "Stair A \u2014 west, the narrow one", "id": "STAIR-A", "kind": "stair", "label": "A", "name": "Stair A (west core)", "use": "core", "w": 62, "x": 40, "y": 62.0}, "STAIR-B": {"area_m2": 24, "cx": 929.0, "cy": 266.5, "floor": 3, "h": 409, "human": "Stair B \u2014 east", "id": "STAIR-B", "kind": "stair", "label": "B", "name": "Stair B (east core)", "use": "core", "w": 62, "x": 898, "y": 62.0}, "STAIR-C": {"area_m2": 30, "cx": 413.0, "cy": 391.0, "floor": 3, "h": 160, "human": "Stair C \u2014 central, the widest", "id": "STAIR-C", "kind": "stair", "label": "C", "name": "Stair C (central core)", "use": "core", "w": 110, "x": 358, "y": 311.0}}, "stairs": ["STAIR-A", "STAIR-B", "STAIR-C"]};</script>
+<script src="/static/js/sense.js?v=static"></script>
+<script src="/static/js/floorplan.js?v=static"></script>
+<script>
+  SENSE.on(s => {
+    const c = document.getElementById('conn-clock');
+    if (c) c.textContent = SENSE.fmt.clock(s.t);
+    document.querySelectorAll('[data-conn]').forEach(n => {
+      n.classList.toggle('alarm', s.mode === 'clearing' || s.mode === 'incident');
+    });
+  });
+</script>
+
+<script>
+(function () {
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  let picked = 'R314', showEmpty = false;
+
+  const mini = new FloorPlan('#mini', window.BUILDING, {
+    routes: false, scan: false, devices: false,
+    onPick: id => { picked = id; paint(SENSE.state); }
+  });
+
+  const srcOf = (f, n) => (f.sources || []).find(s => s.source === n) || null;
+
+  function paint(s) {
+    if (!s) return;
+    mini.render(s);
+    const occ = s.occupancy || {}, smoke = (s.hazard || {}).smoke || {};
+
+    let total = 0;
+    const ids = Object.keys(occ).sort();
+    const tb = $('occ-rows'); tb.innerHTML = '';
+    ids.forEach(id => {
+      const f = occ[id];
+      total += f.high;
+      if (!showEmpty && f.high <= 0 && id !== picked) return;
+      const sure = SENSE.fmt.sure(f.confidence);
+      const sm = smoke[id] || 0;
+      const air = SENSE.fmt.smoke(sm);
+      const parts = SENSE.fmt.place(id).split(' — ');
+      const tr = SENSE.h('tr', { class: id === picked ? 'hot' : '' }, [
+        SENSE.h('td', { html: `${SENSE.escape(parts[0])}${parts[1] ? ' <span class="mute tiny">' + SENSE.escape(parts[1]) + '</span>' : ''}` }),
+        SENSE.h('td', { class: 'num', html: `<b style="font-size:14px;color:${f.is_range ? 'var(--amber)' : 'var(--text)'}">${f.display}</b>` }),
+        SENSE.h('td', {}, [
+          SENSE.h('div', { class: 'bar ' + (sure.cls === 'ok' ? 'g' : sure.cls === 'warn' ? 'a' : 'r') },
+            [SENSE.h('i', { style: 'width:' + Math.round(f.confidence * 100) + '%' })]),
+          SENSE.h('div', { class: 'tiny', style: 'margin-top:3px;color:' + (sure.cls === 'bad' ? 'var(--red)' : sure.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'), text: sure.word })
+        ]),
+        SENSE.h('td', { html: f.primary === 'presence' ? '<span class="pill ok">Radar</span>' : '<span class="pill cy">Camera</span>' }),
+        SENSE.h('td', { html: `<span class="tiny" style="color:${air.cls === 'bad' ? 'var(--red)' : air.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'}">${air.word}</span>` })
+      ]);
+      tr.onclick = () => { picked = id; paint(s); };
+      tr.style.cursor = 'pointer';
+      tb.appendChild(tr);
+    });
+    if (!tb.children.length) tb.innerHTML = '<tr><td colspan="5" class="hint" style="padding:14px">Every room is empty. Press “Show empty rooms” to see them all.</td></tr>';
+    $('fused-total').textContent = 'about ' + total + ' people on this floor';
+
+    const f = occ[picked];
+    const host = $('fusion-detail');
+    if (!f) { host.innerHTML = '<div class="hint">No estimate for that space.</div>'; return; }
+    const cam = srcOf(f, 'camera'), prs = srcOf(f, 'presence');
+    const node = window.BUILDING.nodes[picked] || {};
+    const camRole = !cam ? '—' : cam.status === 'offline' ? 'switched off — ignored'
+      : cam.bound === 'lower' ? 'as a minimum only' : 'in full';
+
+    host.innerHTML = `
+      <div class="grid g-2" style="align-items:start">
+        <div>
+          <div style="font-size:16px;margin-bottom:10px">${SENSE.escape(SENSE.fmt.place(picked))}</div>
+          <table class="t" style="font-size:11.5px">
+            <thead><tr><th>Sensor</th><th class="num">Says</th><th class="num">Sure</th><th>We use it</th></tr></thead>
+            <tbody>
+              <tr><td><span class="pill cy">Camera</span></td>
+                  <td class="num">${cam ? cam.estimate.toFixed(1) : '—'}</td>
+                  <td class="num" style="color:${cam && cam.confidence < .4 ? 'var(--red)' : 'inherit'}">${cam ? Math.round(cam.confidence * 100) + '%' : '—'}</td>
+                  <td class="tiny" style="color:${cam && (cam.bound === 'lower' || cam.status === 'offline') ? 'var(--amber)' : 'var(--text-dim)'}">${camRole}</td></tr>
+              <tr><td><span class="pill ok">Radar</span></td>
+                  <td class="num">${prs ? prs.estimate.toFixed(1) : '—'}</td>
+                  <td class="num">${prs ? Math.round(prs.confidence * 100) + '%' : '—'}</td>
+                  <td class="tiny dim">${prs ? 'in full' : '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tiny mute" style="letter-spacing:.08em">Our answer</div>
+          <div style="font-size:40px;font-family:var(--mono);line-height:1.15;color:${f.is_range ? 'var(--amber)' : 'var(--green)'}">${f.display}</div>
+          <div class="tiny dim" style="margin-bottom:10px">people — we are <b>${SENSE.fmt.sure(f.confidence).word.toLowerCase()}</b> (${Math.round(f.confidence * 100)}%)</div>
+          <div class="note ${f.is_range ? 'warn' : 'cy'} tiny">
+            ${f.is_range
+              ? `We are not sure enough to give one number, so we give a range. When planning the escape we assume the worst case — <b>${f.high} people</b>.`
+              : 'Both sensors agree closely, so we can give a single number.'}
+          </div>
+          ${cam && cam.bound === 'lower' ? `<p class="hint" style="margin:8px 0 0">
+            The camera here is blinded by smoke. It can only <em>miss</em> people, never invent
+            them — so we use its count as a minimum and let the radar decide the real number.
+            Averaging the two would have made us think fewer people were in here than there are.</p>` : ''}
+        </div>
+      </div>`;
+  }
+
+  SENSE.on(paint);
+
+  $('tog-empty').onclick = function () {
+    showEmpty = !showEmpty;
+    this.textContent = showEmpty ? 'Hide empty' : 'Show empty';
+    this.classList.toggle('on', showEmpty);
+    paint(SENSE.state);
+  };
+  $('smoke').oninput = function () {
+    $('smoke-v').textContent = this.value + '%';
+    SENSE.control('smoke', { value: Number(this.value) / 100 });
+  };
+  $('btn-smoke-heavy').onclick = () => { $('smoke').value = 85; $('smoke-v').textContent = '85%'; SENSE.control('smoke', { value: .85 }); };
+  $('btn-smoke-clear').onclick = () => { $('smoke').value = 0; $('smoke-v').textContent = '0%'; SENSE.control('smoke', { value: 0 }); };
+  $('btn-camfail').onclick = function () {
+    this.classList.toggle('on');
+    SENSE.control('camera_fail', { nodes: ['R305', 'C4', 'R314'] });
+  };
+
+  // ------------------------------------------------------------- video
+  // The detector runs on the server; the clip itself is played locally from
+  // the file the user already chose, and the boxes are drawn over it. An
+  // earlier version showed a grey placeholder instead of the video, which
+  // made a working analysis look like a broken one.
+  const stage = $('stage');
+  let result = null, videoEl = null, overlay = null, objectUrl = null, tickTimer = null;
+
+  function resetStage() {
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    stage.innerHTML = '';
+    videoEl = null; overlay = null;
+  }
+
+  function frameAt(t) {
+    if (!result || !result.frames.length) return null;
+    let best = result.frames[0];
+    for (const f of result.frames) if (f.timestamp <= t + 1e-3) best = f; else break;
+    return best;
+  }
+
+  function drawBoxes(f) {
+    if (!overlay || !f) return;
+    overlay.innerHTML = '';
+    f.boxes.forEach(b => {
+      const colour = b.label === 'person' ? '#22d3ee' : b.label === 'smoke' ? '#9aa7b3' : '#f04444';
+      const d = SENSE.h('div', {
+        class: 'bx',
+        style: `left:${b.x * 100}%;top:${b.y * 100}%;width:${b.w * 100}%;height:${b.h * 100}%;`
+             + `border:1.6px solid ${colour};box-shadow:0 0 14px -3px ${colour}`
+      });
+      d.appendChild(SENSE.h('span', { style: `background:${colour}`, text: b.label + ' ' + b.conf.toFixed(2) }));
+      overlay.appendChild(d);
+    });
+    readout(f);
+  }
+
+  function readout(f) {
+    $('vf-people').textContent = f.people;
+    $('vf-people-u').textContent = result && result.peak_people ? 'peak ' + result.peak_people + ' in clip' : 'this frame';
+    $('vf-conf').textContent = f.mean_confidence ? Math.round(f.mean_confidence * 100) + '%' : '—';
+    $('vf-conf').parentElement.className = 'metric ' + (!f.people ? '' : f.mean_confidence < .45 ? 'bad' : f.mean_confidence < .7 ? 'warn' : 'ok');
+    $('vf-obsc').textContent = Math.round(f.obscuration * 100) + '%';
+    $('vf-obsc').parentElement.className = 'metric ' + (f.obscuration > .6 ? 'bad' : f.obscuration > .3 ? 'warn' : '');
+    $('vf-fire').textContent = f.fire ? 'FIRE' : f.smoke ? 'SMOKE' : 'none';
+    $('vf-fire').parentElement.className = 'metric ' + (f.fire ? 'bad' : f.smoke ? 'warn' : '');
+  }
+
+  function showResult(res, file) {
+    result = res;
+    resetStage();
+    $('vis-backend').textContent = res.backend === 'yolo' ? 'YOLO LIVE' : 'SIMULATED';
+    $('vis-backend').className = 'pill ' + (res.backend === 'yolo' ? 'ok' : 'warn');
+    $('vis-verdict').textContent = res.verdict;
+    $('vis-verdict').className = 'note tiny ' + (res.empty ? 'warn' : 'cy');
+    $('vis-detail').textContent = file
+      ? `${file.name} · ${res.frames.length} frames sampled over ${res.duration}s · ${res.detections} detections`
+      : 'Scripted sequence — a room filling with smoke while people are still inside.';
+
+    overlay = SENSE.h('div', { class: 'ovl' });
+
+    if (file) {
+      objectUrl = URL.createObjectURL(file);
+      videoEl = SENSE.h('video', {
+        src: objectUrl, controls: '', muted: '', playsinline: '',
+        style: 'max-height:60vh;object-fit:contain'
+      });
+      stage.appendChild(videoEl);
+      stage.appendChild(overlay);
+      videoEl.addEventListener('timeupdate', () => drawBoxes(frameAt(videoEl.currentTime)));
+      videoEl.addEventListener('loadeddata', () => { drawBoxes(result.frames[0]); videoEl.play().catch(() => {}); });
+      // If the browser cannot decode this file, the analysis is still valid —
+      // fall back to stepping the detected frames rather than showing nothing.
+      videoEl.addEventListener('error', () => { stage.removeChild(videoEl); videoEl = null; stepFrames(); });
+      if (res.empty) {
+        stage.appendChild(SENSE.h('div', {
+          class: 'empty', style: 'align-items:flex-start;justify-content:flex-end;padding:12px',
+          html: '<span class="pill warn">Nothing found</span>'
+        }));
+      }
+      // The numbers should not wait for the video to start decoding.
+      drawBoxes(result.frames[0]);
+    } else {
+      stepFrames();
+    }
+  }
+
+  // Playback without footage: step the analysed frames and shade the backdrop
+  // by the obscuration the detector measured.
+  function stepFrames() {
+    const canvas = SENSE.h('div', { style: 'position:absolute;inset:0' });
+    const holder = SENSE.h('div', { style: 'position:relative;aspect-ratio:16/9;width:100%' });
+    holder.appendChild(canvas);
+    holder.appendChild(overlay);
+    stage.appendChild(holder);
+    let i = 0;
+    const step = () => {
+      const f = result.frames[i];
+      canvas.style.background = `linear-gradient(0deg, rgba(150,160,170,${Math.min(f.obscuration, .82)}),`
+        + ` rgba(150,160,170,${Math.min(f.obscuration * .6, .5)})), #0b1016`;
+      drawBoxes(f);
+      i = (i + 1) % result.frames.length;
+    };
+    step();
+    if (tickTimer) clearInterval(tickTimer);
+    tickTimer = setInterval(step, 430);
+  }
+
+  async function analyse(file, button) {
+    button.disabled = true;
+    const old = button.textContent; button.textContent = 'Analysing…';
+    resetStage();
+    stage.innerHTML = '<div class="empty">Running the detector over every sampled frame…<br>A long clip takes a few seconds.</div>';
+    try {
+      const fd = new FormData(); fd.append('clip', file);
+      const res = await fetch('/api/vision/analyse', { method: 'POST', body: fd });
+      if (!res.ok) {
+        let msg = 'Analysis failed (' + res.status + ').';
+        try { msg = (await res.json()).detail || msg; } catch (e) {}
+        stage.innerHTML = '<div class="empty">' + SENSE.escape(msg) + '</div>';
+        $('vis-verdict').textContent = msg;
+        $('vis-verdict').className = 'note warn tiny';
+        return;
+      }
+      showResult(await res.json(), file);
+    } catch (e) {
+      stage.innerHTML = '<div class="empty">Upload failed: ' + SENSE.escape(e.message) + '</div>';
+    } finally { button.disabled = false; button.textContent = old; }
+  }
+
+  // The sample goes through exactly the same upload path a user's own file
+  // does, so what is demonstrated on stage is what actually works.
+  $('btn-sample').onclick = async function () {
+    try {
+      const blob = await (await fetch('/static/sample-smoke.mp4')).blob();
+      await analyse(new File([blob], 'sample-smoke.mp4', { type: 'video/mp4' }), this);
+    } catch (e) {
+      $('vis-verdict').textContent = 'Could not load the sample clip: ' + e.message;
+      $('vis-verdict').className = 'note warn tiny';
+    }
+  };
+
+  $('btn-analyse').onclick = function () {
+    const file = $('clip').files[0];
+    if (!file) {
+      $('vis-verdict').textContent = 'Choose a video file first, or press Run sample clip.';
+      $('vis-verdict').className = 'note warn tiny';
+      return;
+    }
+    analyse(file, this);
+  };
+
+  if (location.hash === '#demo') setTimeout(() => $('btn-sample').click(), 300);
+})();
+</script>
+
+<script src="/static/js/static-mode.js"></script>
+<script>SENSE.boot();</script>
+</body>
+</html>
