@@ -16,3 +16,7 @@ data/phase0_out.mp4
 
 # housekeeping
 .DS_Store
+
+# deck build intermediates
+deck/.flat/
+deck/.print.html

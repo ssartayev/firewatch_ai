@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Firefighter view — SENSE AI{% endblock %}
+{% block content %}
+
+<div style="max-width:760px;margin-bottom:20px">
+  <p class="eyebrow">Firefighter view</p>
+  <h1 class="head">See who remains—<em>and how to reach them.</em></h1>
+  <p class="sub" style="margin-bottom:0">
+    When a crew arrives they usually know almost nothing: how many people are left, or where.
+    This screen shows which rooms still have people in them, how we know, how sure we are, and
+    a way in that avoids fighting through the crowd coming out. It is information for the
+    officer in charge — it does not give orders, and it is not an approved safety system.
+  </p>
+</div>
+
+<div class="grid g-iso">
+  <div class="stack">
+    <div class="planwrap tall" style="background:#05070a">
+      <div id="iso"></div>
+      <div class="hud">
+        <div>Tower B · <b id="hud-mode">All calm</b></div>
+        <div id="hud-t">T+00:00</div>
+        <div id="hud-rem" style="margin-top:3px">— still inside</div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#f5a524"></i>People needing help</span>
+        <span><i style="background:#dbe7f0"></i>One person</span>
+        <span><i style="background:#f04444"></i>Room on fire</span>
+        <span><i style="background:#34d399"></i>Best way in</span>
+        <span><i style="background:#8b93f8"></i>Backup way in</span>
+        <span>only Level 3 is mapped room by room</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <header><h3>Rooms that still have people in them</h3><div class="spacer"></div>
+        <span class="tiny mute">most dangerous first</span></header>
+      <div class="body" style="padding:0">
+        <table class="t"><thead><tr>
+          <th>Room</th><th class="num">People</th><th style="width:130px">How sure</th>
+          <th>Told us by</th><th>Camera</th><th>Air</th>
+        </tr></thead><tbody id="occ-rows"></tbody></table>
+      </div>
+    </div>
+
+    <div class="panel accent" id="target-panel">
+      <header><h3 id="t-head">Go here first</h3><div class="spacer"></div><span class="pill warn" id="t-flag">People waiting for help</span></header>
+      <div class="body stack" style="gap:9px">
+        <div>
+          <div style="font-size:25px;color:#eaf3f9" id="t-id">Room 314</div>
+          <div class="tiny dim" id="t-name">open-plan desks</div>
+        </div>
+        <dl class="kv">
+          <dt>People inside</dt><dd id="t-people" style="color:var(--amber);font-size:14px">—</dd>
+          <dt>How sure we are</dt><dd id="t-conf">—</dd>
+          <dt>Camera</dt><dd id="t-cam">—</dd>
+          <dt>Radar picks up</dt><dd id="t-prs">—</dd>
+          <dt>Smoke in the room</dt><dd id="t-smoke">—</dd>
+        </dl>
+        <div class="note warn tiny" id="t-note">
+          Some people cannot use the stairs on their own — a wheelchair user, someone injured.
+          They wait in a safe spot for help. A headcount in the car park will never find them,
+          which is exactly why a crew needs to be told where they are.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h3>How to get in</h3></header>
+      <div class="body stack" style="gap:10px">
+        <div>
+          <div class="row"><span class="pill ok">Best way in</span><span class="tiny mute" id="p-from">—</span></div>
+          <div class="tiny" style="margin-top:6px;color:var(--green);line-height:1.6" id="p-path">—</div>
+          <div class="tiny mute" id="p-cost">—</div>
+        </div>
+        <div>
+          <div class="row"><span class="pill" style="color:#8b93f8;border-color:rgba(139,147,248,.4)">Backup way in</span><span class="tiny mute" id="a-from">—</span></div>
+          <div class="tiny" style="margin-top:6px;color:#8b93f8;line-height:1.6" id="a-path">—</div>
+          <div class="tiny mute" id="a-cost">—</div>
+        </div>
+        <div class="note cy tiny" id="p-reason">—</div>
+        <div>
+          <div class="tiny mute" style="letter-spacing:.06em;margin-bottom:5px">Watch out for</div>
+          <div class="stack" style="gap:4px" id="p-warn"></div>
+        </div>
+        <div class="disclaimer" id="p-disc">—</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="body" style="padding-top:2px">
+        <details class="fold" style="border-top:0">
+          <summary>Are the sensors working?</summary>
+          <div class="foldbody"><table class="t">
+            <thead><tr><th>Sensor type</th><th class="num">Working</th><th class="num">Struggling</th><th class="num">Blind or off</th></tr></thead>
+            <tbody id="health-rows"></tbody></table></div>
+        </details>
+        <details class="fold">
+          <summary>Event log</summary>
+          <div class="foldbody"><div class="feed" id="feed"></div></div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/isometric.js?v={{ asset_v }}"></script>
+<script>
+(function () {
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  const iso = new Isometric('#iso', window.BUILDING, {});
+  let intel = null, lastFetch = 0;
+
+  async function refreshIntel() {
+    try { intel = await (await fetch('/api/responder')).json(); paintIntel(); }
+    catch (e) {}
+  }
+
+  function paintIntel() {
+    if (!intel) return;
+    iso.clearRoutes();
+    if (intel.alternative.reachable) iso.drawRoute(intel.alternative.path, '#8b93f8', 'Backup way in');
+    if (intel.primary.reachable) iso.drawRoute(intel.primary.path, '#34d399', 'Best way in');
+
+    $('t-id').textContent = SENSE.fmt.placeShort(intel.target);
+    $('t-name').textContent = (intel.target_name.split(' — ')[1] || '');
+    $('p-from').textContent = intel.primary.label;
+    $('a-from').textContent = intel.alternative.label;
+    const pretty = p => p.map(n => SENSE.fmt.placeShort(n)).join('  →  ');
+    $('p-path').textContent = intel.primary.reachable ? pretty(intel.primary.path) : 'No safe way in';
+    $('a-path').textContent = intel.alternative.reachable ? pretty(intel.alternative.path) : 'No safe way in';
+    $('p-cost').textContent = intel.primary.reachable
+      ? 'about ' + SENSE.fmt.secs(intel.primary.cost) + ' to get there'
+      : 'every route is blocked or too dangerous';
+    $('a-cost').textContent = intel.alternative.reachable
+      ? 'about ' + SENSE.fmt.secs(intel.alternative.cost) + ' to get there'
+      : 'every route is blocked or too dangerous';
+    $('p-reason').textContent = intel.reason;
+    $('p-disc').textContent = intel.disclaimer;
+
+    const w = $('p-warn'); w.innerHTML = '';
+    intel.warnings.forEach(x => w.appendChild(SENSE.h('div', {
+      class: 'tiny', style: 'color:' + (/smoke|fire/i.test(x) ? 'var(--amber)' : 'var(--text-dim)'), text: '• ' + x
+    })));
+  }
+
+  SENSE.on(s => {
+    iso.render(s);
+    $('hud-mode').textContent = { normal: 'All calm', incident: 'Fire detected', clearing: 'Evacuating', cleared: 'Building clear' }[s.mode] || 'All calm';
+    $('hud-t').textContent = SENSE.fmt.clock(s.t);
+    $('hud-rem').textContent = Math.round(s.remaining) + ' of ' + s.total_population + ' still inside';
+    SENSE.renderFeed($('feed'), s, 8);
+
+    const occ = s.occupancy || {};
+    const smoke = (s.hazard || {}).smoke || {};
+    const refuge = s.refuge || {};
+
+    // target panel from live state
+    const tid = Object.keys(refuge)[0] || 'R314';
+    const f = occ[tid];
+    if (f) {
+      const cam = (f.sources || []).find(x => x.source === 'camera');
+      const prs = (f.sources || []).find(x => x.source === 'presence');
+      $('t-id').textContent = SENSE.fmt.placeShort(tid);
+      $('t-name').textContent = (SENSE.fmt.place(tid).split(' — ')[1] || '');
+      $('t-people').textContent = f.display + ' people';
+      $('t-conf').textContent = SENSE.fmt.sure(f.confidence).word + ' (' + Math.round(f.confidence * 100) + '%)';
+      $('t-cam').innerHTML = cam
+        ? `<span style="color:${cam.status === 'ok' ? 'var(--green)' : cam.status === 'degraded' ? 'var(--amber)' : 'var(--red)'}">${cam.status}</span> · ${Math.round(cam.confidence * 100)}%`
+        : '—';
+      $('t-prs').innerHTML = prs ? `about ${prs.estimate.toFixed(0)} people moving` : '—';
+      $('t-smoke').textContent = SENSE.fmt.smoke(smoke[tid] || 0).word;
+      $('t-flag').textContent = (refuge[tid] || 0) > 0.4 ? 'People waiting for help' : 'Most at risk';
+      $('t-head').textContent = s.mode === 'normal' ? 'If a crew arrived now' : 'Go here first';
+      $('t-flag').className = 'pill ' + (s.mode === 'normal' ? '' : 'warn');
+    }
+
+    // occupied spaces
+    const rows = Object.keys(occ).filter(id => occ[id].high > 0)
+      .sort((a, b) => (smoke[b] || 0) - (smoke[a] || 0) || occ[b].high - occ[a].high);
+    const tb = $('occ-rows'); tb.innerHTML = '';
+    rows.slice(0, 6).forEach(id => {
+      const g = occ[id];
+      const cam = (g.sources || []).find(x => x.source === 'camera');
+      const isRef = (refuge[id] || 0) > .4;
+      tb.appendChild(SENSE.h('tr', { class: isRef || (smoke[id] || 0) > .35 ? 'hot' : '' }, [
+        SENSE.h('td', { html: `${SENSE.escape(SENSE.fmt.placeShort(id))}${isRef ? ' <span class="pill warn">Needs help</span>' : ''}` }),
+        SENSE.h('td', { class: 'num', html: `<b style="color:${g.is_range ? 'var(--amber)' : 'var(--text)'}">${g.display}</b>` }),
+        SENSE.h('td', { html: `<div class="bar ${SENSE.confClass(g.confidence) === 'ok' ? 'g' : SENSE.confClass(g.confidence) === 'warn' ? 'a' : 'r'}"><i style="width:${Math.round(g.confidence * 100)}%"></i></div><div class="tiny mute" style="margin-top:3px">${SENSE.fmt.sure(g.confidence).word}</div>` }),
+        SENSE.h('td', { html: g.primary === 'presence' ? '<span class="pill ok">Radar</span>' : '<span class="pill cy">Camera</span>' }),
+        SENSE.h('td', { html: cam ? `<span class="pill ${cam.status === 'ok' ? 'ok' : cam.status === 'degraded' ? 'warn' : 'bad'}">${cam.status}</span>` : '—' }),
+        SENSE.h('td', { html: `<span class="tiny" style="color:${(smoke[id] || 0) > .3 ? 'var(--red)' : 'var(--text-mute)'}">${SENSE.fmt.smoke(smoke[id] || 0).word}</span>` })
+      ]));
+    });
+    if (!rows.length) tb.innerHTML = '<tr><td colspan="6" class="hint" style="padding:14px">Nobody left in the building.</td></tr>';
+
+    // sensor health roll-up
+    const tally = { camera: { ok: 0, degraded: 0, bad: 0 }, presence: { ok: 0, degraded: 0, bad: 0 } };
+    Object.keys(occ).forEach(id => (occ[id].sources || []).forEach(src => {
+      const t = tally[src.source]; if (!t) return;
+      if (src.status === 'ok') t.ok++;
+      else if (src.status === 'degraded') t.degraded++;
+      else t.bad++;
+    }));
+    const hb = $('health-rows'); hb.innerHTML = '';
+    [['Cameras', tally.camera], ['Radar sensors', tally.presence]].forEach(([name, t]) => {
+      hb.appendChild(SENSE.h('tr', {}, [
+        SENSE.h('td', { text: name }),
+        SENSE.h('td', { class: 'num', html: `<span style="color:var(--green)">${t.ok}</span>` }),
+        SENSE.h('td', { class: 'num', html: `<span style="color:var(--amber)">${t.degraded}</span>` }),
+        SENSE.h('td', { class: 'num', html: `<span style="color:var(--red)">${t.bad}</span>` })
+      ]));
+    });
+
+    const now = Date.now();
+    if (now - lastFetch > 2500) { lastFetch = now; refreshIntel(); }
+  });
+
+  refreshIntel();
+})();
+</script>
+{% endblock %}

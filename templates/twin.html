@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Building &amp; sensors — SENSE AI{% endblock %}
+{% block content %}
+
+<div style="max-width:760px;margin-bottom:20px">
+  <p class="eyebrow">Building &amp; sensors</p>
+  <h1 class="head">Every sensor knows which room it is in.</h1>
+  <p class="sub" style="margin-bottom:0">
+    The system holds a model of the building: every room, corridor, staircase and door, with
+    how wide each one is and therefore how many people can get through it per minute. Every
+    camera and sensor is tied to a room in that model. Click any room to see what is in it.
+  </p>
+</div>
+
+<div class="grid g-main">
+  <div class="stack">
+    <div class="planwrap">
+      <div id="plan"></div>
+      <div class="hud"><div>Click any room</div><div id="hud-sel" style="color:var(--cyan)">—</div></div>
+      <div class="legend">
+        <span>Small icons in each room: camera · radar · smoke detector</span>
+      </div>
+    </div>
+
+    <div class="grid g-2">
+      <div class="panel accent">
+        <header><h3>The room you picked</h3><div class="spacer"></div><span class="pill cy" id="sel-kind">—</span></header>
+        <div class="body" id="sel-body">
+          <div class="tiny mute">Click a space on the plan to inspect it.</div>
+        </div>
+      </div>
+      <div class="panel">
+        <header><h3>Ways out of this room</h3></header>
+        <div class="body" style="padding:0">
+          <table class="t"><thead><tr>
+            <th>Leads to</th><th class="num">Distance</th><th class="num">Width</th><th class="num">People per minute</th><th>Kind</th>
+          </tr></thead><tbody id="edge-rows"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <header><h3>Structure</h3></header>
+      <div class="body">
+        <dl class="kv">
+          <dt>Building</dt><dd id="s-name">—</dd>
+          <dt>Floors</dt><dd id="s-floors">—</dd>
+          <dt>Mapped in detail</dt><dd>Level 3, room by room</dd>
+          <dt>Spaces</dt><dd id="s-nodes">—</dd>
+          <dt>Doors &amp; passages</dt><dd id="s-edges">—</dd>
+          <dt>Staircases</dt><dd id="s-stairs">—</dd>
+          <dt>Ways out</dt><dd id="s-exits">—</dd>
+          <dt>Sensors &amp; devices</dt><dd id="s-dev">—</dd>
+        </dl>
+        <p class="hint" style="margin:9px 0 0">
+          Only Level 3 is mapped room by room. For the other floors we only know roughly how
+          many people are on them — so that is all we show, rather than inventing rooms nobody
+          has surveyed.
+        </p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h3>What is installed</h3><div class="spacer"></div>
+        <span class="tiny mute" id="dev-count">—</span></header>
+      <div class="body" style="padding:0;max-height:420px;overflow-y:auto">
+        <table class="t"><thead><tr><th>Device</th><th class="num">How many</th><th>Status</th></tr></thead>
+        <tbody id="dev-rows"></tbody></table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="body" style="padding-top:2px">
+       <details class="fold" style="border-top:0">
+        <summary>What exists today vs what we would build</summary>
+        <div class="foldbody stack" style="gap:9px">
+        <div>
+          <span class="pill ok">Working in this demo</span>
+          <p class="tiny dim" style="margin:5px 0 0">
+            Cameras that count people, radar sensors that see through smoke, smoke and heat
+            detectors, and speakers for announcements. All of them are simulated in software
+            here — but the code that adds their readings up and plans the escape routes is
+            real.
+          </p>
+        </div>
+        <div>
+          <span class="pill warn">Not built yet</span>
+          <p class="tiny dim" style="margin:5px 0 0">
+            Arrows in the ceiling that light up and point people the right way, and a link
+            into the building's existing fire alarm panel. These are listed above as
+            <em>not built yet</em>. They do nothing in this demo — we are not pretending
+            otherwise.
+          </p>
+        </div>
+        </div>
+       </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  const B = window.BUILDING;
+  let selected = null;
+
+  const plan = new FloorPlan('#plan', B, { routes: false, onPick: id => { selected = id; paintSel(SENSE.state); } });
+
+  $('s-name').textContent   = B.name;
+  $('s-floors').textContent = (B.floors || []).length;
+  $('s-nodes').textContent  = Object.keys(B.nodes).length;
+  $('s-edges').textContent  = (B.edges || []).length + ' (bidirectional)';
+  $('s-stairs').textContent = (B.stairs || []).map(s => s.slice(-1)).join(' · ');
+  $('s-exits').textContent  = (B.exits || []).map(s => s.slice(-1)).join(' · ');
+  $('s-dev').textContent    = (B.devices || []).length;
+
+  // device roll-up
+  const LAYER = {
+    camera:   ['Cameras that count people', 'ok'],
+    presence: ['Radar sensors (see through smoke)', 'ok'],
+    smoke:    ['Smoke detectors', 'ok'],
+    heat:     ['Heat detectors', 'ok'],
+    speaker:  ['Speakers for announcements', 'ok'],
+    led:      ['Ceiling arrows that point the way', 'warn'],
+    panel:    ['Link to the fire alarm panel', 'warn']
+  };
+  const counts = {};
+  (B.devices || []).forEach(d => {
+    counts[d.kind] = counts[d.kind] || { n: 0, future: 0 };
+    counts[d.kind].n++;
+    if (d.future) counts[d.kind].future++;
+  });
+  const db = $('dev-rows');
+  Object.keys(LAYER).forEach(k => {
+    const c = counts[k]; if (!c) return;
+    const isFuture = c.future === c.n;
+    db.appendChild(SENSE.h('tr', {}, [
+      SENSE.h('td', { text: LAYER[k][0] }),
+      SENSE.h('td', { class: 'num', text: c.n }),
+      SENSE.h('td', { html: isFuture ? '<span class="pill warn">not built yet</span>' : '<span class="pill ok">in the demo</span>' })
+    ]));
+  });
+  $('dev-count').textContent = (B.devices || []).length + ' TOTAL';
+
+  function paintSel(s) {
+    if (!selected) return;
+    const n = B.nodes[selected];
+    $('hud-sel').textContent = selected;
+    $('sel-kind').textContent = n.kind.toUpperCase();
+
+    const occ = (s && s.occupancy) ? s.occupancy[selected] : null;
+    const smoke = s ? ((s.hazard || {}).smoke || {})[selected] || 0 : 0;
+    const devs = (B.devices || []).filter(d => d.node === selected);
+
+    $('sel-body').innerHTML = `
+      <div style="font-size:16px;margin-bottom:9px">${SENSE.escape(SENSE.fmt.place(selected))}</div>
+      <dl class="kv">
+        <dt>Floor</dt><dd>${n.floor || 'ground'}</dd>
+        <dt>Floor area</dt><dd>${n.area_m2} m²</dd>
+        <dt>People inside</dt><dd>${occ ? occ.display + ' (' + SENSE.fmt.sure(occ.confidence).word.toLowerCase() + ')' : '—'}</dd>
+        <dt>Told us by</dt><dd>${occ ? (occ.primary === 'presence' ? 'radar' : occ.primary) : '—'}</dd>
+        <dt>Air</dt><dd style="color:${smoke > .3 ? 'var(--red)' : smoke > .1 ? 'var(--amber)' : 'var(--text)'}">${SENSE.fmt.smoke(smoke).word}</dd>
+      </dl>
+      <div class="tiny mute" style="letter-spacing:.06em;margin:11px 0 5px">What is in this room (${devs.length})</div>
+      ${devs.length ? devs.map(d => `
+        <div style="display:flex;gap:8px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(27,37,48,.5)">
+          <span class="pill ${d.future ? 'warn' : 'cy'}">${d.kind}</span>
+          <div style="flex:1">
+            <div class="mono tiny">${SENSE.escape(d.id)}</div>
+            <div class="tiny dim">${SENSE.escape(d.model)}${d.note ? ' — ' + SENSE.escape(d.note) : ''}</div>
+          </div>
+        </div>`).join('') : '<div class="tiny mute">No devices bound to this space.</div>'}`;
+
+    const eb = $('edge-rows'); eb.innerHTML = '';
+    (B.edges || []).filter(e => e.a === selected || e.b === selected).forEach(e => {
+      const other = e.a === selected ? e.b : e.a;
+      eb.appendChild(SENSE.h('tr', {}, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(other) }),
+        SENSE.h('td', { class: 'num', text: e.length_m + ' m' }),
+        SENSE.h('td', { class: 'num', text: e.width_m + ' m' }),
+        SENSE.h('td', { class: 'num', html: `<span style="color:var(--cyan)">${Math.round(e.capacity * 60)}</span>` }),
+        SENSE.h('td', { html: `<span class="pill">${e.kind}</span>` })
+      ]));
+    });
+    if (!eb.children.length) eb.innerHTML = '<tr><td colspan="5" class="hint" style="padding:14px">This space has no doors of its own.</td></tr>';
+  }
+
+  SENSE.on(s => { plan.render(s); if (selected) paintSel(s); });
+  selected = 'R305'; plan.selected = 'R305'; plan._select(); paintSel(null);
+})();
+</script>
+{% endblock %}

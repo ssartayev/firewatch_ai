@@ -1,98 +1,294 @@
 {% extends "base.html" %}
-{% block title %}Monitoring — FireWatch AI{% endblock %}
-{% block page_title %}Monitoring{% endblock %}
-{% block page_sub %}Live stream, zones and permit conditions in real time{% endblock %}
-
-{% block actions %}
-  <span class="badge live" id="live-badge"><span class="dot"></span> LIVE</span>
-  <span class="badge muted" id="tg-badge">Telegram</span>
-{% endblock %}
-
+{% block title %}SENSE AI — live emergency model{% endblock %}
 {% block content %}
-<div class="grid-main">
-  <!-- Left column: video + zone editor -->
-  <div class="col">
-    <div class="card">
-      <div class="video-card">
-        <div class="video-overlay">
-          <span class="badge live overlay-badge"><span class="dot"></span> LIVE</span>
-        </div>
-        <img id="stream" src="/video_feed" alt="camera stream">
-        <canvas id="editor" style="display:none"></canvas>
-      </div>
-      <div class="video-toolbar">
-        <button class="btn sm" id="editBtn"><svg class="icon"><use href="#i-pencil"/></svg> Set zone</button>
-        <span id="editControls" style="display:none; gap:8px; align-items:center;" class="input-row">
-          <input id="zoneId" value="A" style="width:60px" title="Zone ID">
-          <button class="btn sm" id="undoBtn"><svg class="icon"><use href="#i-undo"/></svg> Undo point</button>
-          <button class="btn sm" id="clearBtn"><svg class="icon"><use href="#i-trash"/></svg> Clear</button>
-          <button class="btn sm primary" id="saveZoneBtn"><svg class="icon"><use href="#i-check"/></svg> Save</button>
-          <button class="btn sm ghost" id="cancelBtn"><svg class="icon"><use href="#i-x"/></svg></button>
-        </span>
-        <span class="spacer" style="flex:1"></span>
-        <span class="hint" id="editHint">Click on the frame to outline a zone (3+ points)</span>
-      </div>
-    </div>
+
+<div style="max-width:780px;margin-bottom:22px">
+  <p class="eyebrow">Live view</p>
+  <h1 class="head">SENSE AI understands the emergency—<em>and the people inside it.</em></h1>
+  <p class="sub" style="margin-bottom:16px">
+    A normal alarm tells people there is a fire and points at the nearest exit. It has no idea
+    how many people are in the building, where they are, or that everyone is about to pile into
+    the same staircase. SENSE AI keeps track of all of that and splits the crowd between the
+    exits so the building empties faster.
+  </p>
+  <div class="btnrow">
+    <button class="primary" id="btn-run">▶ Run emergency simulation</button>
+    <button id="btn-pause">Pause</button>
+    <button id="btn-reset">Reset</button>
+    <span class="row" style="margin-left:4px">
+      <span class="mono tiny mute">Speed</span>
+      <input type="range" id="speed" min="1" max="6" step="0.5" value="2" style="width:96px">
+      <span class="mono tiny dim" id="speed-v">2.0×</span>
+    </span>
   </div>
+</div>
 
-  <!-- Right column: status -->
-  <div class="col">
-    <div class="stat-grid">
-      <div class="stat">
-        <div class="stat-top">
-          <span class="stat-label">Frames processed</span>
-          <span class="stat-ico"><svg class="icon"><use href="#i-activity"/></svg></span>
-        </div>
-        <div class="stat-val" id="s-frames">0</div>
-      </div>
-      <div class="stat">
-        <div class="stat-top">
-          <span class="stat-label">Total events</span>
-          <span class="stat-ico"><svg class="icon"><use href="#i-bell"/></svg></span>
-        </div>
-        <div class="stat-val" id="s-events">0</div>
-      </div>
-    </div>
+<div class="narrator" id="narrator" style="margin-bottom:18px">
+  <span class="ico"></span>
+  <div class="txt" id="narr-text">
+    Monitoring. <b>84 people</b> in the building, all spaces estimated.
+    <span class="sub" id="narr-sub">Press Run emergency simulation to start.</span>
+  </div>
+</div>
 
-    <div class="card">
-      <div class="card-head"><svg class="icon"><use href="#i-target"/></svg><h2>Hot-work zones</h2></div>
-      <div class="card-pad" id="zones">
-        <p class="hint">Loading…</p>
-      </div>
-    </div>
+<div class="metrics g-3" style="margin-bottom:16px">
+      <div class="metric cy"><div class="k">People still inside</div><div class="v" id="m-remaining">84</div><div class="u" id="m-remaining-u">of 84 · our best estimate</div></div>
+      <div class="metric"><div class="k">Time to get everyone out</div><div class="v" id="m-clear">—</div><div class="u">if they follow the plan</div></div>
+      <div class="metric"><div class="k">Are people following it?</div><div class="v" id="m-div">—</div><div class="u" id="m-div-u">nobody is moving yet</div></div>
+</div>
 
-    <div class="card">
-      <div class="card-head"><svg class="icon"><use href="#i-flame"/></svg><h2>Detectors</h2></div>
-      <div class="card-pad">
-        <div class="det-row">
-          <span class="det-name"><svg class="icon icon-sm"><use href="#i-flame"/></svg> Fire / smoke</span>
-          <span id="d-fire" class="badge muted">—</span>
-        </div>
-        <div class="det-row">
-          <span class="det-name"><svg class="icon icon-sm"><use href="#i-user"/></svg> Observer</span>
-          <span id="d-person" class="badge muted">—</span>
-        </div>
-        <div class="det-row">
-          <span class="det-name"><svg class="icon icon-sm"><use href="#i-shield"/></svg> Extinguisher</span>
-          <span id="d-ext" class="badge muted">—</span>
-        </div>
-      </div>
-    </div>
+<div class="planwrap tall" style="margin-bottom:16px">
+  <div id="plan"></div>
+  <div class="hud">
+    <div><b id="hud-mode">All calm</b></div>
+    <div id="hud-t">T+00:00</div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#22d3ee"></i>Sent to Stair A</span>
+    <span><i style="background:#8b93f8"></i>Sent to Stair B</span>
+    <span><i style="background:#34d399"></i>Sent to Stair C</span>
+    <span><i style="background:#f5a524"></i>Unsure, or people who need help</span>
+    <span><i style="background:#f04444"></i>Fire or smoke</span>
+    <span>white dots = people</span>
+  </div>
+</div>
 
-    <div class="card">
-      <div class="card-head"><svg class="icon"><use href="#i-clipboard"/></svg><h2>Work permit</h2></div>
-      <div class="card-pad">
-        <div class="field">
-          <label>Attach a number to the latest event</label>
-          <div class="input-row">
-            <input id="permit" placeholder="e.g. WP-2026-014">
-            <button class="btn primary" id="permitBtn">Attach</button>
+<div class="grid g-main">
+  <div>
+      <div class="tabs" id="tabs">
+        <button data-pane="cores" class="on">How busy each stair is</button>
+        <button data-pane="guide">What people are being told</button>
+        <button data-pane="log">Event log</button>
+      </div>
+      <div class="panel" style="border-top-left-radius:0">
+        <div class="body">
+          <div class="tabpane on" id="pane-cores">
+            <table class="t"><thead><tr>
+              <th>Staircase</th><th class="num">Sent this way</th><th class="num">Queueing</th>
+              <th class="num">Going through</th><th style="width:170px">How busy</th>
+            </tr></thead><tbody id="stair-rows"></tbody></table>
+          </div>
+          <div class="tabpane" id="pane-guide">
+            <div class="stack" style="gap:8px" id="guide-list">
+              <div class="hint">Nothing is being announced — the building is calm.</div>
+            </div>
+          </div>
+          <div class="tabpane" id="pane-log">
+            <div class="feed" id="feed"></div>
           </div>
         </div>
       </div>
+  </div>
+
+  <div class="panel accent">
+    <header><h3>What happened</h3><div class="spacer"></div>
+      <span class="pill cy" id="mode-pill">All calm</span></header>
+    <div class="body">
+      <div class="tl" id="timeline">
+        <div class="step"><div class="t">T+00:00</div><div class="h">Standing by</div>
+        <div class="d">Press <em>Run emergency simulation</em>.</div></div>
+      </div>
+      <details class="fold" style="margin-top:6px">
+        <summary>For engineers — the control loop</summary>
+        <div class="foldbody stack" style="gap:10px">
+          <div class="loop" id="loop"></div>
+          <dl class="kv">
+            <dt>Planning cycles</dt><dd id="kv-cycles">—</dd>
+            <dt>Last trigger</dt><dd id="kv-reason" style="font-size:11px;white-space:normal">—</dd>
+            <dt>Compliance</dt><dd id="kv-comp">—</dd>
+          </dl>
+          <p class="hint" style="margin:0">
+            The loop runs continuously: sense, estimate, plan, guide, observe, compare,
+            recalculate. A plan is a snapshot, never a commitment.
+          </p>
+        </div>
+      </details>
     </div>
   </div>
 </div>
-{% endblock %}
 
-{% block scripts %}<script src="/static/dashboard.js"></script>{% endblock %}
+<div class="grid g-3 sectiongap">
+  <div class="panel"><div class="body">
+    <p class="eyebrow">1 · It counts people</p>
+    <p class="hint" style="margin:0">Cameras count who is in each room. When smoke blinds them,
+    radar sensors that see through smoke take over. The system always says how sure it is.</p>
+  </div></div>
+  <div class="panel"><div class="body">
+    <p class="eyebrow">2 · It shares out the exits</p>
+    <p class="hint" style="margin:0">Instead of sending everyone to the nearest door, it works
+    out how long each route will really take once it is crowded, and splits people between the
+    three staircases.</p>
+  </div></div>
+  <div class="panel"><div class="body">
+    <p class="eyebrow">3 · It checks and corrects</p>
+    <p class="hint" style="margin:0">It watches where people actually go. When they ignore the
+    instructions — and they do — it notices and works out a new plan.</p>
+  </div></div>
+</div>
+
+<p class="hint" style="max-width:88ch;margin-top:18px">
+  Smart alarms that spot a fire and change the exit signs already exist. What is new here is
+  putting people into the picture. <a href="/technology">How it works</a> explains the
+  engineering, and says plainly what this prototype cannot do.
+</p>
+
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  const plan = new FloorPlan('#plan', window.BUILDING, { mode: 'operations' });
+
+  $('btn-run').onclick   = () => SENSE.control('start');
+  $('btn-reset').onclick = () => SENSE.control('reset');
+  $('btn-pause').onclick = () => SENSE.control(SENSE.state && SENSE.state.running ? 'pause' : 'resume');
+  $('speed').oninput = function () {
+    $('speed-v').textContent = Number(this.value).toFixed(1) + '×';
+    SENSE.control('speed', { value: Number(this.value) });
+  };
+
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $('tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    ['cores', 'guide', 'log'].forEach(p =>
+      $('pane-' + p).classList.toggle('on', p === b.dataset.pane));
+  });
+
+  const MODES = {
+    normal:   ['All calm', 'All calm', 'cy'],
+    incident: ['Fire detected', 'Fire detected', 'warn'],
+    clearing: ['Evacuating', 'Evacuating', 'bad'],
+    cleared:  ['Everyone out', 'Building clear', 'ok']
+  };
+
+  // One plain sentence describing the current state of the building. This is
+  // the thing a viewer should be able to read in the first few seconds, so it
+  // is written as prose and not as a dashboard reading.
+  function narrate(s) {
+    const cmp = s.comparison || {};
+    const worst = Object.entries(s.stairs || {})
+      .sort((a, b) => b[1].utilisation - a[1].utilisation)[0];
+    const refuge = Object.keys(s.refuge || {});
+    const rem = Math.round(s.remaining);
+
+    if (s.mode === 'normal')
+      return ['', `All calm. We think there are <b>${rem} people</b> in the building.`,
+        'A plan for getting them out already exists, before anything has happened. Press Run emergency simulation.'];
+
+    if (s.mode === 'cleared')
+      return ['ok', `Everyone is out. <b>${s.total_population} people</b>, in ${SENSE.fmt.clock(s.t).replace('T+','')}.`,
+        `The plan was recalculated ${s.replan_count} times along the way.`];
+
+    if (cmp.replan_required)
+      return ['bad', `<b>People are not going where they were sent.</b> The crowd has drifted ${SENSE.fmt.pct(cmp.max_divergence)} away from the plan.`,
+        'Working out a new one right now, based on where they actually went.'];
+
+    if (worst && worst[1].utilisation > 1)
+      return ['bad', `<b>${SENSE.fmt.placeShort(worst[0])} is jammed</b> — ${worst[1].queue.toFixed(0)} people waiting to get in.`,
+        'Sending the next groups to the other two staircases instead.'];
+
+    if (refuge.length)
+      return ['warn', `<b>${rem} people</b> still inside. ${refuge.map(r => SENSE.fmt.placeShort(r)).join(', ')} has people who cannot use the stairs on their own.`,
+        'The firefighter view shows the safest way in to reach them.'];
+
+    return ['warn', `Evacuating — <b>${rem} of ${s.total_population}</b> still inside.`,
+      `People are following the plan. Everyone should be out in about ${SENSE.fmt.secs(s.clearance_estimate)}.`];
+  }
+
+  SENSE.on(s => {
+    plan.render(s);
+    SENSE.renderLoop($('loop'), s);
+    SENSE.renderFeed($('feed'), s, 12);
+
+    const m = MODES[s.mode] || MODES.normal;
+    $('mode-pill').textContent = m[0];
+    $('mode-pill').className = 'pill ' + m[2];
+    $('hud-mode').textContent = m[1];
+    $('hud-t').textContent = SENSE.fmt.clock(s.t);
+    $('btn-pause').textContent = s.running ? 'Pause' : 'Resume';
+    $('btn-run').disabled = s.mode !== 'normal';
+
+    const [tone, main, sub] = narrate(s);
+    $('narrator').className = 'narrator ' + tone;
+    $('narr-text').innerHTML = main + `<span class="sub">${sub}</span>`;
+
+    $('m-remaining').textContent = Math.round(s.remaining);
+    $('m-remaining-u').textContent = `of ${s.total_population} · ${Math.round(s.evacuated)} out`;
+    if (s.mode === 'cleared') {
+      $('m-clear').textContent = SENSE.fmt.secs(s.t);
+      $('m-clear').parentElement.className = 'metric ok';
+      $('m-clear').parentElement.querySelector('.u').textContent = 'it actually took this long';
+    } else {
+      $('m-clear').textContent = SENSE.fmt.secs(s.clearance_estimate);
+      $('m-clear').parentElement.className = 'metric';
+      $('m-clear').parentElement.querySelector('.u').textContent = 'if they follow the plan';
+    }
+
+    const cmp = s.comparison || {};
+    const dv = $('m-div');
+    if (!cmp.observing) {
+      dv.textContent = '—'; dv.parentElement.className = 'metric';
+      $('m-div-u').textContent = 'nobody is moving yet';
+    } else {
+      dv.textContent = cmp.replan_required ? 'No' : 'Yes';
+      dv.parentElement.className = 'metric ' + (cmp.replan_required ? 'bad' : 'ok');
+      $('m-div-u').textContent = cmp.replan_required
+        ? SENSE.fmt.pct(cmp.max_divergence) + ' off plan — recalculating'
+        : SENSE.fmt.pct(1 - cmp.max_divergence) + ' are going the right way';
+    }
+
+    $('kv-cycles').textContent = s.replan_count;
+    $('kv-reason').textContent = s.replan_reason || '—';
+    $('kv-comp').textContent = SENSE.fmt.pct(s.compliance) + (s.guidance_active ? ' (guided)' : ' (unaided)');
+
+    const tb = $('stair-rows'); tb.innerHTML = '';
+    Object.keys(s.stairs || {}).sort().forEach(id => {
+      const st = s.stairs[id], load = SENSE.fmt.load(st.utilisation);
+      tb.appendChild(SENSE.h('tr', { class: st.utilisation > 1 ? 'hot' : '' }, [
+        SENSE.h('td', { html: `${SENSE.fmt.placeShort(id)} <span class="mute tiny">${id === 'STAIR-C' ? 'widest' : id === 'STAIR-A' ? 'narrowest' : ''}</span>` }),
+        SENSE.h('td', { class: 'num', text: st.assigned }),
+        SENSE.h('td', { class: 'num', text: st.queue.toFixed(0) }),
+        SENSE.h('td', { class: 'num mute', text: SENSE.fmt.rate(st.flow) }),
+        SENSE.h('td', {}, [
+          SENSE.h('div', { class: 'bar ' + (load.cls === 'bad' ? 'r' : load.cls === 'warn' ? 'a' : 'g') },
+            [SENSE.h('i', { style: 'width:' + Math.min(st.utilisation * 100, 100) + '%' })]),
+          SENSE.h('div', {
+            class: 'tiny', style: 'margin-top:3px;color:' + (load.cls === 'bad' ? 'var(--red)' : load.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'),
+            text: load.word + (st.utilisation > 1 ? ' — more people than it can take' : '')
+          })
+        ])
+      ]));
+    });
+
+    const gl = $('guide-list'), gs = s.guidance || [];
+    if (!gs.length) gl.innerHTML = '<div class="hint">No instruction issued — the building is at rest.</div>';
+    else {
+      gl.innerHTML = '';
+      gs.forEach(g => gl.appendChild(SENSE.h('div', { class: 'note cy tiny' }, [
+        SENSE.h('div', { class: 'mono', style: 'color:var(--cyan);font-size:10px;letter-spacing:.1em', text: g.device + ' · ' + g.led }),
+        SENSE.h('div', { style: 'margin-top:2px;font-size:12.5px', text: g.message }),
+        SENSE.h('div', { class: 'mute', style: 'font-size:10.5px;margin-top:2px', text: g.people + (g.people === 1 ? ' person sent this way' : ' people sent this way') })
+      ])));
+    }
+
+    const tl = $('timeline'), steps = s.timeline || [];
+    if (steps.length) {
+      tl.innerHTML = '';
+      steps.slice().reverse().slice(0, 8).forEach((st, i) => {
+        tl.appendChild(SENSE.h('div', { class: 'step ' + (i === 0 ? 'now' : 'done') }, [
+          SENSE.h('div', { class: 't', text: SENSE.fmt.clock(st.t) }),
+          SENSE.h('div', { class: 'h', text: st.title }),
+          SENSE.h('div', { class: 'd', text: st.detail })
+        ]));
+      });
+      if (steps.length > 8) {
+        tl.appendChild(SENSE.h('div', { class: 'hint', style: 'padding-top:4px', text: `+ ${steps.length - 8} earlier` }));
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

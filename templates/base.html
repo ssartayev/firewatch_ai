@@ -1,121 +1,55 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}FireWatch AI{% endblock %}</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script>
-    // apply the saved theme before paint (avoids a flash)
-    (function () {
-      var t = localStorage.getItem("fw-theme") || "dark";
-      document.documentElement.setAttribute("data-theme", t);
-    })();
-  </script>
+  <title>{% block title %}SENSE AI{% endblock %}</title>
+  <meta name="description" content="SENSE AI — confidence-aware occupancy intelligence and building-wide evacuation optimisation. Decision-support prototype.">
+  <link rel="stylesheet" href="/static/css/sense.css?v={{ asset_v }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2306080b'/><circle cx='16' cy='16' r='9' fill='none' stroke='%2322d3ee' stroke-width='2.5'/><circle cx='16' cy='16' r='3' fill='%2322d3ee'/></svg>">
 </head>
 <body>
-  <!-- icon sprite (Lucide style), referenced via <use> -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <g id="_ico" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></g>
-    </defs>
-    <symbol id="i-flame" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
-    <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
-    <symbol id="i-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></symbol>
-    <symbol id="i-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
-    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
-    <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></symbol>
-    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
-    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
-    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></symbol>
-    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
-    <symbol id="i-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
-    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
-    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></symbol>
-    <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a4 4 0 0 1 4 4v3"/></symbol>
-    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
-    <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></symbol>
-    <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.5V19l4 2v-8.5L22 3z"/></symbol>
-    <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
-    <symbol id="i-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4 20-7z"/></symbol>
-    <symbol id="i-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 19.1a10 10 0 0 1 0-14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2"/></symbol>
-  </svg>
+<div class="topbar">
+  <div class="brand"><b>SENSE&nbsp;AI</b><span>MVP&nbsp;SIMULATION</span></div>
+  <nav class="nav">
+    <a href="/"            class="{{ 'on' if active=='live' }}">Live view</a>
+    <a href="/occupancy"   class="{{ 'on' if active=='occupancy' }}">Who is inside</a>
+    <a href="/evacuation"  class="{{ 'on' if active=='evacuation' }}">Escape routes</a>
+    <a href="/command"     class="{{ 'on' if active=='command' }}">Firefighter view</a>
+    <a href="/twin"        class="{{ 'on' if active=='twin' }}">Building &amp; sensors</a>
+    <a href="/technology"  class="{{ 'on' if active=='technology' }}">How it works</a>
+  </nav>
+  <div class="spacer"></div>
+  <div class="livechip"><span class="dot" data-conn></span><span id="conn-clock">T+00:00</span></div>
+</div>
 
-  <div class="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark"><svg class="icon"><use href="#i-flame"/></svg></div>
-        <div>
-          <div class="brand-name">FireWatch AI</div>
-          <div class="brand-sub">Fire watcher</div>
-        </div>
-      </div>
+<div class="shell">
+  {% block content %}{% endblock %}
 
-      <div class="nav-label">Sections</div>
-      <a class="nav-item {% if active=='monitor' %}active{% endif %}" href="/">
-        <svg class="icon"><use href="#i-dashboard"/></svg> Monitoring</a>
-      <a class="nav-item {% if active=='events' %}active{% endif %}" href="/events">
-        <svg class="icon"><use href="#i-history"/></svg> Event log</a>
-      <a class="nav-item {% if active=='guide' %}active{% endif %}" href="/guide">
-        <svg class="icon"><use href="#i-help"/></svg> How to use</a>
+  <footer class="foot">
+    <strong style="color:var(--text-dim)">SENSE AI is a working demonstration, not a finished product.</strong>
+    The building, the people and the sensors in it are simulated. It is not an approved
+    fire-safety system, it has no safety certification, and it cannot promise that a fire
+    will be detected or that everyone will get out. Every people-count you see is an
+    estimate with a stated confidence, never an exact count. The escape routes are a
+    simulation on a simplified map of a building. The camera model is experimental, and any
+    accuracy figure quoted comes from the people who published that model, not from us.
+  </footer>
+</div>
 
-      <div class="sidebar-footer">
-        <div class="src-chip" id="src-chip" title="Video source">
-          <svg class="icon icon-sm"><use href="#i-camera"/></svg>
-          <span>Source: <b id="src-name">—</b></span>
-        </div>
-        <button class="theme-toggle" id="themeToggle" type="button">
-          <svg class="icon icon-sm sun"><use href="#i-moon"/></svg>
-          <svg class="icon icon-sm moon"><use href="#i-sun"/></svg>
-          <span>Toggle theme</span>
-        </button>
-      </div>
-    </aside>
-
-    <div class="main">
-      <header class="topbar">
-        <button class="btn ghost sm menu-btn" id="menuBtn" aria-label="Menu">
-          <svg class="icon"><use href="#i-menu"/></svg></button>
-        <div>
-          <h1>{% block page_title %}{% endblock %}</h1>
-          <div class="sub">{% block page_sub %}{% endblock %}</div>
-        </div>
-        <div class="spacer"></div>
-        <div class="topbar-actions">{% block actions %}{% endblock %}</div>
-      </header>
-      <div class="content">{% block content %}{% endblock %}</div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"><svg class="icon"><use href="#i-check"/></svg><span id="toast-msg"></span></div>
-
-  <script>
-    // theme
-    document.getElementById("themeToggle").addEventListener("click", function () {
-      var cur = document.documentElement.getAttribute("data-theme");
-      var next = cur === "dark" ? "light" : "dark";
-      document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem("fw-theme", next);
+<script>window.BUILDING = {{ building | tojson }};</script>
+<script src="/static/js/sense.js?v={{ asset_v }}"></script>
+<script src="/static/js/floorplan.js?v={{ asset_v }}"></script>
+<script>
+  SENSE.on(s => {
+    const c = document.getElementById('conn-clock');
+    if (c) c.textContent = SENSE.fmt.clock(s.t);
+    document.querySelectorAll('[data-conn]').forEach(n => {
+      n.classList.toggle('alarm', s.mode === 'clearing' || s.mode === 'incident');
     });
-    // mobile menu
-    var mb = document.getElementById("menuBtn");
-    if (mb) mb.addEventListener("click", function () {
-      document.getElementById("sidebar").classList.toggle("open");
-    });
-    // shared toast
-    window.fwToast = function (msg, ok) {
-      if (ok === undefined) ok = true;
-      var t = document.getElementById("toast");
-      document.getElementById("toast-msg").textContent = msg;
-      t.querySelector("use").setAttribute("href", ok ? "#i-check" : "#i-alert");
-      t.className = "toast show " + (ok ? "ok" : "err");
-      clearTimeout(window._fwtt);
-      window._fwtt = setTimeout(function () { t.className = "toast " + (ok ? "ok" : "err"); }, 2600);
-    };
-  </script>
-  {% block scripts %}{% endblock %}
+  });
+</script>
+{% block scripts %}{% endblock %}
+<script>SENSE.boot();</script>
 </body>
 </html>

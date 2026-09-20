@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block title %}Who is inside — SENSE AI{% endblock %}
+{% block content %}
+
+<div style="max-width:760px;margin-bottom:20px">
+  <p class="eyebrow">Who is inside</p>
+  <h1 class="head">Know where people are.</h1>
+  <p class="sub" style="margin-bottom:0">
+    A camera counts people well — until smoke fills the room, and then it sees nothing. A radar
+    sensor sees straight through smoke, but it can never give an exact number. So we use both,
+    and each one tells us how sure it is. When they are not sure enough between them, we say
+    <em>“4 to 6 people”</em> instead of pretending to know it is 5.
+  </p>
+</div>
+
+<div class="grid g-main">
+  <div class="stack airy">
+
+    <div class="panel">
+      <header>
+        <h3>People in each room</h3><div class="spacer"></div>
+        <span class="tiny mute" id="fused-total">—</span>
+        <button id="tog-empty" style="padding:4px 9px">Show empty rooms</button>
+      </header>
+      <div class="body" style="padding:0">
+        <table class="t">
+          <thead><tr>
+            <th>Room</th><th class="num">People</th><th style="width:140px">How sure we are</th>
+            <th>Who is telling us</th><th>Air</th>
+          </tr></thead>
+          <tbody id="occ-rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel accent">
+      <header><h3>Where that number came from</h3><div class="spacer"></div>
+        <span class="tiny mute">click any room above, or on the map</span></header>
+      <div class="body"><div id="fusion-detail">
+        <div class="hint">Select a space.</div>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <header><h3>What the camera actually sees</h3><div class="spacer"></div>
+        <span class="pill {{ 'ok' if vision.backend=='yolo' else 'warn' }}" id="vis-backend">
+          {{ 'YOLO LIVE' if vision.backend=='yolo' else 'SIMULATED' }}</span>
+      </header>
+      <div class="body stack">
+        <div class="row wrap">
+          <button class="primary" id="btn-sample">▶ Play the example</button>
+          <input type="file" id="clip" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo">
+          <button id="btn-analyse">Use my own video</button>
+        </div>
+        <p class="hint" style="margin:0" id="vis-detail">
+          The sample is real footage with real people in it, hazed over 14 seconds. YOLO runs
+          on it frame by frame and the boxes drawn on the video are its actual output — watch
+          the count fall and the confidence drop as the smoke closes in. Your own clips work
+          the same way; they need real people in frame, not animation.
+        </p>
+
+        <div class="vidstage" id="stage">
+          <div class="empty" style="position:static;min-height:200px">
+            Press <b style="color:var(--cyan)">Play the example</b> to watch the camera
+            lose people as smoke fills the room.
+          </div>
+        </div>
+
+        <div class="metrics g-4">
+          <div class="metric"><div class="k">People it can see</div><div class="v" id="vf-people">—</div><div class="u" id="vf-people-u">right now</div></div>
+          <div class="metric"><div class="k">How sure it is</div><div class="v" id="vf-conf">—</div><div class="u">about what it found</div></div>
+          <div class="metric"><div class="k">How much smoke</div><div class="v" id="vf-obsc">—</div><div class="u">blocking the view</div></div>
+          <div class="metric"><div class="k">Fire or smoke?</div><div class="v" id="vf-fire">—</div><div class="u">spotted in the picture</div></div>
+        </div>
+
+        <div class="note warn tiny" id="vis-verdict">
+          Nothing analysed yet.
+        </div>
+        <details class="fold">
+          <summary>For engineers — the detection model and its limits</summary>
+          <div class="foldbody"><div class="disclaimer">{{ vision.disclaimer }}<br><br>
+            Backend: <span class="mono">{{ vision.detail }}</span></div></div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="panel accent">
+      <header><h3>Try breaking it</h3></header>
+      <div class="body stack" style="gap:11px">
+        <p class="hint" style="margin:0">
+          Fill the building with smoke and watch the cameras go blind. The numbers turn into
+          ranges, and the radar takes over the counting.
+        </p>
+        <input type="range" id="smoke" min="0" max="100" step="5" value="0">
+        <div class="row"><span class="tiny mute">How much smoke</span>
+          <span class="mono" id="smoke-v" style="color:var(--amber)">0%</span></div>
+        <div class="btnrow">
+          <button id="btn-smoke-heavy">Fill with smoke</button>
+          <button id="btn-smoke-clear">Clear the air</button>
+        </div>
+        <button id="btn-camfail">Switch off three cameras</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h3>Live map</h3></header>
+      <div class="body" style="padding:7px"><div id="mini"></div></div>
+    </div>
+
+    <div class="panel">
+      <div class="body" style="padding-top:4px">
+        <details class="fold" open style="border-top:0">
+          <summary>Camera vs radar — what each one is good at</summary>
+          <div class="foldbody stack" style="gap:11px">
+            <div>
+              <span class="pill cy">Camera</span>
+              <p class="hint" style="margin:5px 0 0">
+                Counts accurately when the air is clear. In smoke it does not just get unsure —
+                it stops seeing people at all. A blinded camera can only ever <em>miss</em>
+                people, never invent them, so we treat its count as a <b>minimum</b>: it can
+                push our estimate up, never down.
+              </p>
+            </div>
+            <div>
+              <span class="pill ok">Radar</span>
+              <p class="hint" style="margin:5px 0 0">
+                Radar or heat sensing. It picks up movement — even breathing — straight through
+                smoke. But it is not a counter: two people standing close together can look like
+                one, and furniture confuses it. It does <b>not</b> see through walls, and we
+                never treat its number as exact.
+              </p>
+            </div>
+          </div>
+        </details>
+        <details class="fold">
+          <summary>For engineers — the fusion maths</summary>
+          <div class="foldbody">
+            <p class="hint" style="margin:0">
+              Each source's weight is its precision — <span class="mono">conf² / (1 − conf)</span>,
+              the reciprocal of its variance. Fused confidence is noisy-OR across independent
+              sources. Below 80% the estimate is published as a range, and the planner routes
+              for the top of that range rather than the middle.
+            </p>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  let picked = 'R314', showEmpty = false;
+
+  const mini = new FloorPlan('#mini', window.BUILDING, {
+    routes: false, scan: false, devices: false,
+    onPick: id => { picked = id; paint(SENSE.state); }
+  });
+
+  const srcOf = (f, n) => (f.sources || []).find(s => s.source === n) || null;
+
+  function paint(s) {
+    if (!s) return;
+    mini.render(s);
+    const occ = s.occupancy || {}, smoke = (s.hazard || {}).smoke || {};
+
+    let total = 0;
+    const ids = Object.keys(occ).sort();
+    const tb = $('occ-rows'); tb.innerHTML = '';
+    ids.forEach(id => {
+      const f = occ[id];
+      total += f.high;
+      if (!showEmpty && f.high <= 0 && id !== picked) return;
+      const sure = SENSE.fmt.sure(f.confidence);
+      const sm = smoke[id] || 0;
+      const air = SENSE.fmt.smoke(sm);
+      const parts = SENSE.fmt.place(id).split(' — ');
+      const tr = SENSE.h('tr', { class: id === picked ? 'hot' : '' }, [
+        SENSE.h('td', { html: `${SENSE.escape(parts[0])}${parts[1] ? ' <span class="mute tiny">' + SENSE.escape(parts[1]) + '</span>' : ''}` }),
+        SENSE.h('td', { class: 'num', html: `<b style="font-size:14px;color:${f.is_range ? 'var(--amber)' : 'var(--text)'}">${f.display}</b>` }),
+        SENSE.h('td', {}, [
+          SENSE.h('div', { class: 'bar ' + (sure.cls === 'ok' ? 'g' : sure.cls === 'warn' ? 'a' : 'r') },
+            [SENSE.h('i', { style: 'width:' + Math.round(f.confidence * 100) + '%' })]),
+          SENSE.h('div', { class: 'tiny', style: 'margin-top:3px;color:' + (sure.cls === 'bad' ? 'var(--red)' : sure.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'), text: sure.word })
+        ]),
+        SENSE.h('td', { html: f.primary === 'presence' ? '<span class="pill ok">Radar</span>' : '<span class="pill cy">Camera</span>' }),
+        SENSE.h('td', { html: `<span class="tiny" style="color:${air.cls === 'bad' ? 'var(--red)' : air.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'}">${air.word}</span>` })
+      ]);
+      tr.onclick = () => { picked = id; paint(s); };
+      tr.style.cursor = 'pointer';
+      tb.appendChild(tr);
+    });
+    if (!tb.children.length) tb.innerHTML = '<tr><td colspan="5" class="hint" style="padding:14px">Every room is empty. Press “Show empty rooms” to see them all.</td></tr>';
+    $('fused-total').textContent = 'about ' + total + ' people on this floor';
+
+    const f = occ[picked];
+    const host = $('fusion-detail');
+    if (!f) { host.innerHTML = '<div class="hint">No estimate for that space.</div>'; return; }
+    const cam = srcOf(f, 'camera'), prs = srcOf(f, 'presence');
+    const node = window.BUILDING.nodes[picked] || {};
+    const camRole = !cam ? '—' : cam.status === 'offline' ? 'switched off — ignored'
+      : cam.bound === 'lower' ? 'as a minimum only' : 'in full';
+
+    host.innerHTML = `
+      <div class="grid g-2" style="align-items:start">
+        <div>
+          <div style="font-size:16px;margin-bottom:10px">${SENSE.escape(SENSE.fmt.place(picked))}</div>
+          <table class="t" style="font-size:11.5px">
+            <thead><tr><th>Sensor</th><th class="num">Says</th><th class="num">Sure</th><th>We use it</th></tr></thead>
+            <tbody>
+              <tr><td><span class="pill cy">Camera</span></td>
+                  <td class="num">${cam ? cam.estimate.toFixed(1) : '—'}</td>
+                  <td class="num" style="color:${cam && cam.confidence < .4 ? 'var(--red)' : 'inherit'}">${cam ? Math.round(cam.confidence * 100) + '%' : '—'}</td>
+                  <td class="tiny" style="color:${cam && (cam.bound === 'lower' || cam.status === 'offline') ? 'var(--amber)' : 'var(--text-dim)'}">${camRole}</td></tr>
+              <tr><td><span class="pill ok">Radar</span></td>
+                  <td class="num">${prs ? prs.estimate.toFixed(1) : '—'}</td>
+                  <td class="num">${prs ? Math.round(prs.confidence * 100) + '%' : '—'}</td>
+                  <td class="tiny dim">${prs ? 'in full' : '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div class="tiny mute" style="letter-spacing:.08em">Our answer</div>
+          <div style="font-size:40px;font-family:var(--mono);line-height:1.15;color:${f.is_range ? 'var(--amber)' : 'var(--green)'}">${f.display}</div>
+          <div class="tiny dim" style="margin-bottom:10px">people — we are <b>${SENSE.fmt.sure(f.confidence).word.toLowerCase()}</b> (${Math.round(f.confidence * 100)}%)</div>
+          <div class="note ${f.is_range ? 'warn' : 'cy'} tiny">
+            ${f.is_range
+              ? `We are not sure enough to give one number, so we give a range. When planning the escape we assume the worst case — <b>${f.high} people</b>.`
+              : 'Both sensors agree closely, so we can give a single number.'}
+          </div>
+          ${cam && cam.bound === 'lower' ? `<p class="hint" style="margin:8px 0 0">
+            The camera here is blinded by smoke. It can only <em>miss</em> people, never invent
+            them — so we use its count as a minimum and let the radar decide the real number.
+            Averaging the two would have made us think fewer people were in here than there are.</p>` : ''}
+        </div>
+      </div>`;
+  }
+
+  SENSE.on(paint);
+
+  $('tog-empty').onclick = function () {
+    showEmpty = !showEmpty;
+    this.textContent = showEmpty ? 'Hide empty' : 'Show empty';
+    this.classList.toggle('on', showEmpty);
+    paint(SENSE.state);
+  };
+  $('smoke').oninput = function () {
+    $('smoke-v').textContent = this.value + '%';
+    SENSE.control('smoke', { value: Number(this.value) / 100 });
+  };
+  $('btn-smoke-heavy').onclick = () => { $('smoke').value = 85; $('smoke-v').textContent = '85%'; SENSE.control('smoke', { value: .85 }); };
+  $('btn-smoke-clear').onclick = () => { $('smoke').value = 0; $('smoke-v').textContent = '0%'; SENSE.control('smoke', { value: 0 }); };
+  $('btn-camfail').onclick = function () {
+    this.classList.toggle('on');
+    SENSE.control('camera_fail', { nodes: ['R305', 'C4', 'R314'] });
+  };
+
+  // ------------------------------------------------------------- video
+  // The detector runs on the server; the clip itself is played locally from
+  // the file the user already chose, and the boxes are drawn over it. An
+  // earlier version showed a grey placeholder instead of the video, which
+  // made a working analysis look like a broken one.
+  const stage = $('stage');
+  let result = null, videoEl = null, overlay = null, objectUrl = null, tickTimer = null;
+
+  function resetStage() {
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    stage.innerHTML = '';
+    videoEl = null; overlay = null;
+  }
+
+  function frameAt(t) {
+    if (!result || !result.frames.length) return null;
+    let best = result.frames[0];
+    for (const f of result.frames) if (f.timestamp <= t + 1e-3) best = f; else break;
+    return best;
+  }
+
+  function drawBoxes(f) {
+    if (!overlay || !f) return;
+    overlay.innerHTML = '';
+    f.boxes.forEach(b => {
+      const colour = b.label === 'person' ? '#22d3ee' : b.label === 'smoke' ? '#9aa7b3' : '#f04444';
+      const d = SENSE.h('div', {
+        class: 'bx',
+        style: `left:${b.x * 100}%;top:${b.y * 100}%;width:${b.w * 100}%;height:${b.h * 100}%;`
+             + `border:1.6px solid ${colour};box-shadow:0 0 14px -3px ${colour}`
+      });
+      d.appendChild(SENSE.h('span', { style: `background:${colour}`, text: b.label + ' ' + b.conf.toFixed(2) }));
+      overlay.appendChild(d);
+    });
+    readout(f);
+  }
+
+  function readout(f) {
+    $('vf-people').textContent = f.people;
+    $('vf-people-u').textContent = result && result.peak_people ? 'peak ' + result.peak_people + ' in clip' : 'this frame';
+    $('vf-conf').textContent = f.mean_confidence ? Math.round(f.mean_confidence * 100) + '%' : '—';
+    $('vf-conf').parentElement.className = 'metric ' + (!f.people ? '' : f.mean_confidence < .45 ? 'bad' : f.mean_confidence < .7 ? 'warn' : 'ok');
+    $('vf-obsc').textContent = Math.round(f.obscuration * 100) + '%';
+    $('vf-obsc').parentElement.className = 'metric ' + (f.obscuration > .6 ? 'bad' : f.obscuration > .3 ? 'warn' : '');
+    $('vf-fire').textContent = f.fire ? 'FIRE' : f.smoke ? 'SMOKE' : 'none';
+    $('vf-fire').parentElement.className = 'metric ' + (f.fire ? 'bad' : f.smoke ? 'warn' : '');
+  }
+
+  function showResult(res, file) {
+    result = res;
+    resetStage();
+    $('vis-backend').textContent = res.backend === 'yolo' ? 'YOLO LIVE' : 'SIMULATED';
+    $('vis-backend').className = 'pill ' + (res.backend === 'yolo' ? 'ok' : 'warn');
+    $('vis-verdict').textContent = res.verdict;
+    $('vis-verdict').className = 'note tiny ' + (res.empty ? 'warn' : 'cy');
+    $('vis-detail').textContent = file
+      ? `${file.name} · ${res.frames.length} frames sampled over ${res.duration}s · ${res.detections} detections`
+      : 'Scripted sequence — a room filling with smoke while people are still inside.';
+
+    overlay = SENSE.h('div', { class: 'ovl' });
+
+    if (file) {
+      objectUrl = URL.createObjectURL(file);
+      videoEl = SENSE.h('video', {
+        src: objectUrl, controls: '', muted: '', playsinline: '',
+        style: 'max-height:60vh;object-fit:contain'
+      });
+      stage.appendChild(videoEl);
+      stage.appendChild(overlay);
+      videoEl.addEventListener('timeupdate', () => drawBoxes(frameAt(videoEl.currentTime)));
+      videoEl.addEventListener('loadeddata', () => { drawBoxes(result.frames[0]); videoEl.play().catch(() => {}); });
+      // If the browser cannot decode this file, the analysis is still valid —
+      // fall back to stepping the detected frames rather than showing nothing.
+      videoEl.addEventListener('error', () => { stage.removeChild(videoEl); videoEl = null; stepFrames(); });
+      if (res.empty) {
+        stage.appendChild(SENSE.h('div', {
+          class: 'empty', style: 'align-items:flex-start;justify-content:flex-end;padding:12px',
+          html: '<span class="pill warn">Nothing found</span>'
+        }));
+      }
+      // The numbers should not wait for the video to start decoding.
+      drawBoxes(result.frames[0]);
+    } else {
+      stepFrames();
+    }
+  }
+
+  // Playback without footage: step the analysed frames and shade the backdrop
+  // by the obscuration the detector measured.
+  function stepFrames() {
+    const canvas = SENSE.h('div', { style: 'position:absolute;inset:0' });
+    const holder = SENSE.h('div', { style: 'position:relative;aspect-ratio:16/9;width:100%' });
+    holder.appendChild(canvas);
+    holder.appendChild(overlay);
+    stage.appendChild(holder);
+    let i = 0;
+    const step = () => {
+      const f = result.frames[i];
+      canvas.style.background = `linear-gradient(0deg, rgba(150,160,170,${Math.min(f.obscuration, .82)}),`
+        + ` rgba(150,160,170,${Math.min(f.obscuration * .6, .5)})), #0b1016`;
+      drawBoxes(f);
+      i = (i + 1) % result.frames.length;
+    };
+    step();
+    if (tickTimer) clearInterval(tickTimer);
+    tickTimer = setInterval(step, 430);
+  }
+
+  async function analyse(file, button) {
+    button.disabled = true;
+    const old = button.textContent; button.textContent = 'Analysing…';
+    resetStage();
+    stage.innerHTML = '<div class="empty">Running the detector over every sampled frame…<br>A long clip takes a few seconds.</div>';
+    try {
+      const fd = new FormData(); fd.append('clip', file);
+      const res = await fetch('/api/vision/analyse', { method: 'POST', body: fd });
+      if (!res.ok) {
+        let msg = 'Analysis failed (' + res.status + ').';
+        try { msg = (await res.json()).detail || msg; } catch (e) {}
+        stage.innerHTML = '<div class="empty">' + SENSE.escape(msg) + '</div>';
+        $('vis-verdict').textContent = msg;
+        $('vis-verdict').className = 'note warn tiny';
+        return;
+      }
+      showResult(await res.json(), file);
+    } catch (e) {
+      stage.innerHTML = '<div class="empty">Upload failed: ' + SENSE.escape(e.message) + '</div>';
+    } finally { button.disabled = false; button.textContent = old; }
+  }
+
+  // The sample goes through exactly the same upload path a user's own file
+  // does, so what is demonstrated on stage is what actually works.
+  $('btn-sample').onclick = async function () {
+    try {
+      const blob = await (await fetch('/static/sample-smoke.mp4')).blob();
+      await analyse(new File([blob], 'sample-smoke.mp4', { type: 'video/mp4' }), this);
+    } catch (e) {
+      $('vis-verdict').textContent = 'Could not load the sample clip: ' + e.message;
+      $('vis-verdict').className = 'note warn tiny';
+    }
+  };
+
+  $('btn-analyse').onclick = function () {
+    const file = $('clip').files[0];
+    if (!file) {
+      $('vis-verdict').textContent = 'Choose a video file first, or press Run sample clip.';
+      $('vis-verdict').className = 'note warn tiny';
+      return;
+    }
+    analyse(file, this);
+  };
+
+  if (location.hash === '#demo') setTimeout(() => $('btn-sample').click(), 300);
+})();
+</script>
+{% endblock %}

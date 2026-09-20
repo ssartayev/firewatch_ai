@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}Escape routes — SENSE AI{% endblock %}
+{% block content %}
+
+<div style="max-width:760px;margin-bottom:20px">
+  <p class="eyebrow">Escape routes</p>
+  <h1 class="head">The shortest route is not always the fastest.</h1>
+  <p class="sub" style="margin-bottom:0">
+    If everyone heads for their nearest staircase, one of them jams and the other two stand
+    half empty — and the whole building takes longer to clear. SENSE AI works out how long each
+    route will really take once it is crowded, then splits people between all three. Press a
+    button below to break something and watch the routes move.
+  </p>
+</div>
+
+<div class="grid g-side">
+  <div class="stack">
+    <div class="panel accent">
+      <header><h3>Interventions</h3></header>
+      <div class="body stack" style="gap:7px">
+        <button class="primary" id="i-run">▶ Evacuate the building</button>
+        <button id="i-fire">Start a fire in Room 305</button>
+        <button id="i-crowd">Jam up Stair A</button>
+        <button id="i-block">Block the east-central corridor</button>
+        <button class="danger" id="i-reset">Start over</button>
+        <details class="fold" style="margin-top:4px">
+          <summary>Pick a room on the map first</summary>
+          <div class="foldbody stack" style="gap:6px">
+            <p class="hint" style="margin:0">Click any room on the map, then:</p>
+            <button id="i-block-sel">Block it off</button>
+            <button id="i-ignite-sel">Set it on fire</button>
+            <button id="i-replan">Recalculate now</button>
+            <div class="mono tiny mute" id="sel-label">selected: none</div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="panel">
+      <header><h3>Ready-made situations</h3></header>
+      <div class="body stack" style="gap:6px" id="scen"></div>
+    </div>
+
+    <div class="panel">
+      <div class="body" style="padding-top:2px">
+        <details class="fold" style="border-top:0">
+        <summary>For engineers — how a route is costed</summary>
+        <div class="foldbody">
+        <dl class="kv" style="font-size:11px">
+          <dt>Walking</dt><dd>length ÷ speed(density)</dd>
+          <dt>Speed</dt><dd>v₀·(1 − ρ/ρ_jam)</dd>
+          <dt>Queue</dt><dd>rises sharply above 85% of capacity</dd>
+          <dt>Capacity</dt><dd>1.30 p/s/m level · 0.90 stair</dd>
+          <dt>Hazard</dt><dd>(smoke − 0.22)^2.2 penalty</dd>
+          <dt>Blocked</dt><dd>smoke ≥ 0.82 or fire</dd>
+          <dt>Parcels</dt><dd>2 people per assignment step</dd>
+          <dt>Demand</dt><dd>upper bound of the occupancy range</dd>
+        </dl>
+        <p class="hint" style="margin:9px 0 0">
+          Flow capacities follow the usual egress rule of thumb — plausible planning numbers
+          for a simulation, not certified figures for a real building.
+        </p>
+        </div>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="narrator" id="narrator">
+      <span class="ico"></span>
+      <div class="txt" id="narr-text">Baseline allocation for the building at rest.<span class="sub" id="narr-sub">—</span></div>
+    </div>
+
+    <div class="metrics g-3">
+      <div class="metric cy"><div class="k">Time to get everyone out</div><div class="v" id="m-clear">—</div><div class="u">until the last person leaves</div></div>
+      <div class="metric"><div class="k">People given a route</div><div class="v" id="m-routed">—</div><div class="u" id="m-routed-u">right now</div></div>
+      <div class="metric"><div class="k">Times replanned</div><div class="v" id="m-cycles">—</div><div class="u">since the start</div></div>
+    </div>
+
+    <div class="planwrap">
+      <div id="plan"></div>
+      <div class="hud">
+        <div>Status <b id="hud-mode">All calm</b></div>
+        <div id="hud-t">T+00:00</div>
+        <div id="hud-why" style="max-width:230px;white-space:normal;text-align:right;margin-top:4px;color:var(--amber)"></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:#22d3ee"></i>Sent to Stair A</span>
+        <span><i style="background:#8b93f8"></i>Sent to Stair B</span>
+        <span><i style="background:#34d399"></i>Sent to Stair C</span>
+        <span><i style="background:#f5a524"></i>Getting crowded</span>
+        <span><i style="background:#f04444"></i>Blocked or on fire</span>
+        <span>thicker line = more people</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="tabs" id="tabs">
+        <button data-pane="routes" class="on">Who goes where, and why</button>
+        <button data-pane="cmp">Plan vs what really happened</button>
+        <button data-pane="cores">How busy each stair is</button>
+        <span style="flex:1"></span>
+        <span class="pill" id="cmp-pill" style="align-self:center;margin-bottom:6px">—</span>
+      </div>
+      <div class="panel" style="border-top-left-radius:0">
+        <div class="body" style="padding:0">
+          <div class="tabpane on" id="pane-routes" style="max-height:330px;overflow-y:auto">
+            <table class="t"><thead><tr>
+              <th>From</th><th>Sent to</th><th class="num">People</th><th class="num">Takes</th><th>Why this way</th>
+            </tr></thead><tbody id="route-rows"></tbody></table>
+          </div>
+          <div class="tabpane" id="pane-cmp">
+            <table class="t"><thead><tr>
+              <th>Staircase</th><th class="num">We planned</th><th class="num">They actually used</th><th class="num">Difference</th>
+            </tr></thead><tbody id="cmp-rows"></tbody></table>
+          </div>
+          <div class="tabpane" id="pane-cores">
+            <table class="t"><thead><tr>
+              <th>Staircase</th><th class="num">Queueing</th><th class="num">On the stairs</th><th style="width:150px">How busy</th>
+            </tr></thead><tbody id="stair-rows"></tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  // A missing node must never take the rest of the render down with it —
+  // that is exactly how one removed element blanked two tables.
+  const NOOP = { textContent: '', innerHTML: '', className: '', style: {},
+                 classList: { add() {}, remove() {}, toggle() {} },
+                 appendChild() {}, querySelectorAll: () => [] };
+  const $ = id => document.getElementById(id) || NOOP;
+  let selected = null;
+
+  const plan = new FloorPlan('#plan', window.BUILDING, {
+    onPick: id => { selected = id; $('sel-label').textContent = 'picked: ' + SENSE.fmt.place(id); }
+  });
+
+  $('i-run').onclick    = () => SENSE.control('start');
+  $('i-fire').onclick   = () => SENSE.control('ignite', { node: 'R305' });
+  $('i-crowd').onclick  = () => SENSE.control('crowd', { stair: 'STAIR-A' });
+  $('i-block').onclick  = () => SENSE.control('block', { node: 'C4' });
+  $('i-replan').onclick = () => SENSE.control('replan');
+  $('i-reset').onclick  = () => SENSE.control('reset');
+  $('i-block-sel').onclick  = () => selected && SENSE.control('block', { node: selected });
+  $('i-ignite-sel').onclick = () => selected && SENSE.control('ignite', { node: selected });
+
+  fetch('/api/scenarios').then(r => r.json()).then(list => {
+    const host = $('scen');
+    list.forEach(sc => {
+      const b = SENSE.h('button', { style: 'text-align:left;text-transform:none;letter-spacing:0;font-size:11.5px;line-height:1.4' });
+      b.innerHTML = `<b class="mono" style="letter-spacing:.1em;text-transform:uppercase;font-size:10px;color:var(--cyan)">${sc.id}</b><br><span class="dim">${SENSE.escape(sc.label)}</span>`;
+      b.onclick = () => SENSE.control('scenario', { name: sc.id });
+      host.appendChild(b);
+    });
+  });
+
+  const MODES = { normal: 'All calm', incident: 'Fire detected', clearing: 'Evacuating', cleared: 'Building clear' };
+
+  $('tabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    $('tabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    ['routes', 'cmp', 'cores'].forEach(p => $('pane-' + p).classList.toggle('on', p === b.dataset.pane));
+  });
+
+  SENSE.on(s => {
+    plan.render(s);
+    $('hud-mode').textContent = MODES[s.mode] || 'MONITOR';
+    $('hud-t').textContent = SENSE.fmt.clock(s.t);
+    $('hud-why').textContent = s.replan_reason || '';
+
+    const p = s.plan || {};
+    const routed = (p.routes || []).reduce((a, r) => a + r.people, 0);
+    const unrout = Object.values(p.unroutable || {}).reduce((a, b) => a + b, 0);
+    $('m-clear').textContent  = SENSE.fmt.secs(s.clearance_estimate);
+    $('m-routed').textContent = routed;
+    $('m-routed-u').textContent = unrout ? unrout + ' have no way out' : 'right now';
+    $('m-routed').parentElement.className = 'metric ' + (unrout ? 'bad' : '');
+    $('m-cycles').textContent = s.replan_count;
+
+    const cm = s.comparison || {};
+    const worst = Object.entries(s.stairs || {}).sort((a, b) => b[1].utilisation - a[1].utilisation)[0];
+    let tone = '', line = '', sub = s.replan_reason || '';
+    if (unrout) { tone = 'bad'; line = `<b>${unrout} people are trapped</b> — there is no way out for them.`; }
+    else if (cm.replan_required) { tone = 'bad'; line = `People are <b>${SENSE.fmt.pct(cm.max_divergence)} off the plan</b> — working out a new one.`; }
+    else if (worst && worst[1].utilisation > 1) { tone = 'warn'; line = `<b>${SENSE.fmt.placeShort(worst[0])} is jammed</b> — sending people the other way.`; }
+    else if (s.mode === 'cleared') { tone = 'ok'; line = `Everyone is out, in <b>${SENSE.fmt.clock(s.t).replace('T+','')}</b>.`; }
+    else if (s.mode === 'normal') { line = `Plan ready — <b>${routed} people</b> split across three staircases.`; sub = 'Nothing has happened yet. Press a button to break something.'; }
+    else { tone = 'warn'; line = `Evacuating — <b>${routed} people</b> have a route right now.`; }
+    $('narrator').className = 'narrator ' + tone;
+    $('narr-text').innerHTML = line + `<span class="sub">${SENSE.escape(sub)}</span>`;
+
+    const tb = $('route-rows'); tb.innerHTML = '';
+    (p.routes || []).forEach(r => {
+      const colour = { 'STAIR-A': '#22d3ee', 'STAIR-B': '#8b93f8', 'STAIR-C': '#34d399' }[r.stair] || '#7b8997';
+      const tr = SENSE.h('tr', {}, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(r.origin) }),
+        SENSE.h('td', { html: `<span style="color:${colour}">${SENSE.fmt.placeShort(r.stair)}</span> <span class="mute tiny">→ ${SENSE.fmt.placeShort(r.exit)}</span>` }),
+        SENSE.h('td', { class: 'num', text: r.people }),
+        SENSE.h('td', { class: 'num mute', text: SENSE.fmt.secs(r.travel_time) }),
+        SENSE.h('td', { class: 'tiny dim', text: r.reason || '—' })
+      ]);
+      tr.onmouseenter = () => { plan.clearOverlay(); plan.drawPath(r.path, colour, r.people + 'p'); };
+      tr.onmouseleave = () => plan.clearOverlay();
+      tb.appendChild(tr);
+    });
+    if (!(p.routes || []).length) tb.innerHTML = '<tr><td colspan="5" class="hint" style="padding:14px">Nobody left to route.</td></tr>';
+
+    const cmp = s.comparison || {};
+    const cp = $('cmp-pill');
+    if (!cmp.observing) { cp.textContent = 'Nobody moving yet'; cp.className = 'pill'; }
+    else if (cmp.replan_required) { cp.textContent = 'Not following the plan'; cp.className = 'pill bad'; }
+    else { cp.textContent = 'Following the plan'; cp.className = 'pill ok'; }
+
+    const cb = $('cmp-rows'); cb.innerHTML = '';
+    (cmp.rows || []).forEach(r => {
+      const d = r.divergence || 0;
+      cb.appendChild(SENSE.h('tr', { class: Math.abs(d) > .18 ? 'hot' : '' }, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(r.stair) }),
+        SENSE.h('td', { class: 'num', text: SENSE.fmt.pct(r.planned_share) }),
+        SENSE.h('td', { class: 'num', text: r.observed_share === null ? '—' : SENSE.fmt.pct(r.observed_share) }),
+        SENSE.h('td', { class: 'num', html: `<span style="color:${Math.abs(d) > .18 ? 'var(--red)' : Math.abs(d) > .08 ? 'var(--amber)' : 'var(--text-mute)'}">${d > 0 ? '+' : ''}${Math.round(d * 100)}%</span>` })
+      ]));
+    });
+    if (!(cmp.rows || []).length) cb.innerHTML = '<tr><td colspan="4" class="hint" style="padding:14px">Nothing to compare yet.</td></tr>';
+
+    const sb = $('stair-rows'); sb.innerHTML = '';
+    Object.keys(s.stairs || {}).sort().forEach(id => {
+      const st = s.stairs[id], load = SENSE.fmt.load(st.utilisation);
+      sb.appendChild(SENSE.h('tr', { class: st.utilisation > 1 ? 'hot' : '' }, [
+        SENSE.h('td', { text: SENSE.fmt.placeShort(id) }),
+        SENSE.h('td', { class: 'num', text: st.queue.toFixed(0) }),
+        SENSE.h('td', { class: 'num mute', text: st.descending.toFixed(0) }),
+        SENSE.h('td', {}, [
+          SENSE.h('div', { class: 'bar ' + (load.cls === 'bad' ? 'r' : load.cls === 'warn' ? 'a' : 'g') },
+            [SENSE.h('i', { style: 'width:' + Math.min(st.utilisation * 100, 100) + '%' })]),
+          SENSE.h('div', { class: 'tiny', style: 'margin-top:3px;color:' + (load.cls === 'bad' ? 'var(--red)' : load.cls === 'warn' ? 'var(--amber)' : 'var(--text-mute)'), text: load.word })
+        ])
+      ]));
+    });
+  });
+})();
+</script>
+{% endblock %}

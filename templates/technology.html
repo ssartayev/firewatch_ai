@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}How it works — SENSE AI{% endblock %}
+{% block content %}
+
+<p class="eyebrow">How it works</p>
+<h1 class="head">Sensors are replaceable. The model in the middle is the product.</h1>
+<p class="sub">
+  Every detection model in SENSE AI is a module behind an interface: it returns an estimate
+  and a confidence, and nothing downstream knows or cares what produced it. A better camera
+  model, a different radar vendor or a building's existing fire panel all plug into the same
+  place. What does not get swapped out is the layer that decides how much to trust each of
+  them and what to do about the people the result implies.
+</p>
+
+<div class="panel" style="margin-bottom:16px">
+  <header><h3>How information flows through the system</h3></header>
+  <div class="body" style="padding:6px"><div id="arch"></div></div>
+</div>
+
+<div class="grid g-2" style="margin-bottom:16px">
+  <div class="panel">
+    <header><h3>What the system does, over and over</h3></header>
+    <div class="body">
+      <table class="t"><thead><tr><th style="width:110px">Step</th><th>What happens</th></tr></thead><tbody>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">SENSE</td><td class="tiny dim">Read every device in the twin: cameras, presence sensors, smoke and heat detectors. Advance the hazard state.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">ESTIMATE</td><td class="tiny dim">Fuse the layers per space by precision weighting. Publish a range wherever combined precision is low.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">PLAN</td><td class="tiny dim">Allocate the whole population across every usable exit in parcels, each one seeing the congestion the last one created.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">GUIDE</td><td class="tiny dim">Derive per-zone instructions from the allocation. Different zones get different messages because they are going to different cores.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">OBSERVE</td><td class="tiny dim">Watch where people actually go. A share of them will not follow the instruction, and that share is measured rather than assumed away.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">COMPARE</td><td class="tiny dim">Measure the gap between planned and observed distribution across the cores.</td></tr>
+        <tr><td class="mono" style="color:var(--cyan);font-size:11.5px">RECALCULATE</td><td class="tiny dim">Replan when the divergence, the hazard or the load says so. The plan is a snapshot, never a commitment.</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <header><h3>Stack</h3></header>
+    <div class="body">
+      <table class="t"><thead><tr><th>Layer</th><th>Built with</th></tr></thead><tbody>
+        <tr><td>Detection models</td><td class="mono tiny">Ultralytics YOLO · PyTorch · OpenCV</td></tr>
+        <tr><td>Sensor fusion</td><td class="mono tiny">Python — precision weighting, noisy-OR confidence</td></tr>
+        <tr><td>Building twin</td><td class="mono tiny">Python — node/edge graph with flow capacities</td></tr>
+        <tr><td>Hazard transport</td><td class="mono tiny">Python — gradient smoke transport over the graph</td></tr>
+        <tr><td>Routing</td><td class="mono tiny">Python — Dijkstra over time-varying cost</td></tr>
+        <tr><td>Allocation</td><td class="mono tiny">Python — incremental parcel assignment</td></tr>
+        <tr><td>Crowd simulation</td><td class="mono tiny">Python — capacity-gated pipes, compliance model</td></tr>
+        <tr><td>Server</td><td class="mono tiny">FastAPI · Uvicorn · WebSocket state stream</td></tr>
+        <tr><td>Interface</td><td class="mono tiny">Jinja2 · vanilla JS · hand-built SVG, no framework</td></tr>
+        <tr><td>Persistence</td><td class="mono tiny">SQLite event log (carried over from FireWatch)</td></tr>
+      </tbody></table>
+      <div class="note cy tiny" style="margin-top:10px">
+        SENSE AI grew out of <b>FireWatch AI</b>, a computer-vision hot-work safety monitor
+        built on the same stack. The fire and smoke detector from that project is now the
+        hazard-sensing layer here. The original code is kept under <span class="mono">legacy/</span>.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="grid g-2">
+  <div class="panel">
+    <header><h3>The camera models we use</h3><div class="spacer"></div>
+      <span class="pill {{ 'ok' if vision.backend=='yolo' else 'warn' }}">
+        {{ 'YOLO RUNTIME ACTIVE' if vision.backend=='yolo' else 'SIMULATED RUNTIME' }}</span></header>
+    <div class="body stack">
+      <div class="mono tiny mute">{{ vision.detail }}</div>
+      {% for m in vision.candidates %}
+      <div style="border:1px solid var(--line);border-radius:3px;padding:10px">
+        <div class="row wrap" style="gap:7px">
+          <span class="mono" style="color:var(--cyan);font-size:11.5px">{{ m.id }}</span>
+          <span class="pill">{{ m.role }}</span>
+          <span class="pill {{ 'ok' if 'bundled' in m.status else 'warn' }}">{{ m.status }}</span>
+        </div>
+        <div class="mono tiny dim" style="margin-top:6px">
+          {% for k, v in m.self_reported.items() %}<span style="margin-right:13px">{{ k }} <b style="color:var(--text)">{{ v }}</b></span>{% endfor %}
+        </div>
+        <div class="tiny mute" style="margin-top:5px;line-height:1.5">{{ m.note }}</div>
+      </div>
+      {% endfor %}
+      <div class="disclaimer">{{ vision.disclaimer }}</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <header><h3>What this cannot do — read this part</h3></header>
+    <div class="body stack" style="gap:9px">
+      <div class="note warn tiny"><b>It is not certified and has no regulatory approval.</b>
+        Nothing here has been assessed against any life-safety standard, and it must not be
+        relied on as, or in place of, a compliant fire alarm and evacuation system.</div>
+      <div class="note warn tiny"><b>It does not guarantee detection.</b>
+        The detection models are experimental. Published figures are the model authors'
+        self-reported validation results on their own datasets, not measurements on this
+        building and not evidence of real-world fire performance.</div>
+      <div class="note warn tiny"><b>It does not see through walls.</b>
+        The non-visual layer detects motion and micro-motion signatures. Its accuracy depends
+        on mounting, on partition materials and on commissioning, it merges people who stand
+        close together, and it is never treated as an exact count.</div>
+      <div class="note warn tiny"><b>It does not command anyone.</b>
+        The responder screen is decision support. A commander decides; the system states its
+        belief, its confidence and its reasoning.</div>
+      <div class="note warn tiny"><b>It does not claim novel routing.</b>
+        Dynamic hazard detection, digital building models, changing evacuation routes and
+        dynamic exit signage all exist today. The integration is what is being proposed:
+        confidence-aware occupancy, crowd-flow observation, capacity modelling,
+        population-level allocation and repeated replanning against observed behaviour.</div>
+      <div class="note warn tiny"><b>It is not production-ready.</b>
+        This is a simulation on a schematic building, built to evaluate the concept.</div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (n, a, p) => { const e = document.createElementNS(NS, n); for (const k in a) if (a[k] != null) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+
+  const svg = el('svg', { viewBox: '0 0 1180 470', preserveAspectRatio: 'xMidYMid meet', style: 'width:100%;height:auto' }, document.getElementById('arch'));
+  const defs = el('defs', {}, svg);
+  const mk = el('marker', { id: 'ah', viewBox: '0 0 8 8', refX: 7, refY: 4, markerWidth: 6, markerHeight: 6, orient: 'auto' }, defs);
+  el('path', { d: 'M0 0 L8 4 L0 8 z', fill: '#2e4757' }, mk);
+
+  const COL = { in: '#22d3ee', core: '#34d399', out: '#8b93f8', future: '#f5a524' };
+
+  const NODES = [
+    { id: 'cam',   x: 20,  y: 22,  w: 190, h: 52, t: 'Cameras', s: 'edge-AI person detection', c: COL.in },
+    { id: 'prs',   x: 20,  y: 92,  w: 190, h: 52, t: 'Non-visual sensors', s: 'mmWave · thermal presence', c: COL.in },
+    { id: 'fire',  x: 20,  y: 162, w: 190, h: 52, t: 'Fire and smoke sensors', s: 'photo-optical · heat', c: COL.in },
+    { id: 'bms',   x: 20,  y: 232, w: 190, h: 52, t: 'Building systems', s: 'alarm panel · proposed', c: COL.future, dash: 1 },
+
+    { id: 'fuse',  x: 268, y: 92,  w: 200, h: 82, t: 'Confidence-aware fusion', s: 'precision weighting · ranges', c: COL.core },
+    { id: 'twin',  x: 262, y: 206, w: 212, h: 78, t: 'Live building + population model', s: 'graph · capacities · occupancy', c: COL.core },
+
+    { id: 'anal',  x: 526, y: 92,  w: 200, h: 82, t: 'Crowd and hazard analysis', s: 'density · flow · tenability', c: COL.core },
+    { id: 'plan',  x: 520, y: 206, w: 212, h: 78, t: 'Building-wide evacuation plan', s: 'parcel allocation · replanning', c: COL.core },
+
+    { id: 'sim',   x: 784, y: 22,  w: 200, h: 62, t: 'Digital route simulation', s: 'MVP output — this product', c: COL.out },
+    { id: 'spk',   x: 784, y: 100, w: 200, h: 62, t: 'Zoned speakers', s: 'per-zone instructions', c: COL.out },
+    { id: 'led',   x: 784, y: 178, w: 200, h: 62, t: 'Ceiling LED guidance', s: 'proposed future output', c: COL.future, dash: 1 },
+    { id: 'cmd',   x: 784, y: 256, w: 200, h: 62, t: 'Firefighter command view', s: 'decision support', c: COL.out },
+
+    { id: 'obs',   x: 526, y: 330, w: 200, h: 72, t: 'Observed crowd movement', s: 'measured, not assumed', c: COL.in },
+    { id: 'cmp',   x: 268, y: 330, w: 200, h: 72, t: 'Compare plan to reality', s: 'divergence triggers replan', c: COL.core }
+  ];
+
+  const EDGES = [
+    ['cam', 'fuse'], ['prs', 'fuse'], ['fire', 'fuse'], ['bms', 'twin'],
+    ['fuse', 'twin'], ['twin', 'anal'], ['fuse', 'anal'], ['anal', 'plan'],
+    ['plan', 'sim'], ['plan', 'spk'], ['plan', 'led'], ['plan', 'cmd'],
+    ['spk', 'obs'], ['obs', 'cmp'], ['cmp', 'plan'], ['cmp', 'twin']
+  ];
+
+  const map = {};
+  NODES.forEach(n => { map[n.id] = n; });
+
+  // edges first so boxes sit on top
+  EDGES.forEach(([a, b]) => {
+    const A = map[a], B = map[b];
+    const ax = A.x + A.w, ay = A.y + A.h / 2;
+    const bx = B.x, by = B.y + B.h / 2;
+    let d;
+    if (B.x < A.x) {            // feedback edge, route underneath
+      d = `M${A.x} ${A.y + A.h / 2} C${A.x - 34} ${A.y + A.h / 2}, ${B.x + B.w + 34} ${by}, ${B.x + B.w} ${by}`;
+    } else {
+      const mid = (ax + bx) / 2;
+      d = `M${ax} ${ay} C${mid} ${ay}, ${mid} ${by}, ${bx} ${by}`;
+    }
+    const fb = B.x < A.x;
+    el('path', {
+      d, fill: 'none', stroke: fb ? '#f5a524' : '#2e4757',
+      'stroke-opacity': fb ? .6 : 1, 'stroke-width': fb ? 1.3 : 1.1,
+      'stroke-dasharray': fb ? '5 4' : null, 'marker-end': 'url(#ah)'
+    }, svg);
+  });
+
+  NODES.forEach(n => {
+    const g = el('g', {}, svg);
+    el('rect', {
+      x: n.x, y: n.y, width: n.w, height: n.h, rx: 3,
+      fill: '#0d1219', stroke: n.c, 'stroke-opacity': n.dash ? .5 : .8,
+      'stroke-width': 1, 'stroke-dasharray': n.dash ? '5 4' : null
+    }, g);
+    el('rect', { x: n.x, y: n.y, width: 3, height: n.h, fill: n.c, 'fill-opacity': n.dash ? .5 : .9 }, g);
+    const t1 = el('text', { x: n.x + 13, y: n.y + 22, fill: '#dbe7f0', 'font-size': 12.5, 'font-family': '-apple-system, Segoe UI, sans-serif' }, g);
+    t1.textContent = n.t;
+    const t2 = el('text', { x: n.x + 13, y: n.y + 38, fill: '#6d7b88', 'font-size': 10.5, 'font-family': 'ui-monospace, Menlo, monospace' }, g);
+    t2.textContent = n.s;
+  });
+
+  const lg = el('text', { x: 20, y: 442, fill: '#4f5d6b', 'font-size': 10.5, 'font-family': 'ui-monospace, Menlo, monospace', 'letter-spacing': '.1em' }, svg);
+  lg.textContent = 'SOLID = DATA FLOW   ·   AMBER DASHED = FEEDBACK   ·   DASHED BORDER = PROPOSED, NOT BUILT';
+})();
+</script>
+{% endblock %}

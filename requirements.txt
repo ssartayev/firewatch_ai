@@ -1,16 +1,22 @@
-# FireWatch AI — MVP dependencies
-# computer vision / inference
-ultralytics>=8.3.0        # YOLO (pulls in torch, torchvision, opencv, numpy, pillow)
-opencv-python>=4.9.0      # video reading and box drawing
+# SENSE AI — MVP dependencies
+#
+# The simulation core (building twin, fusion, routing, allocation, crowd
+# model) is pure Python and needs nothing below except the web server.
+# The vision dependencies are only required for the detection layer; without
+# them the product still runs and reports its backend as "simulated".
 
-# web server and dashboard
+# web server, dashboard and live state stream
 fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
+uvicorn[standard]>=0.29.0     # includes the websockets implementation
 jinja2>=3.1.0
-python-multipart>=0.0.9  # file/form handling in FastAPI
+python-multipart>=0.0.9       # video upload on the occupancy page
 
-# config and utilities
+# detection layer (optional — see app/vision.py)
+ultralytics>=8.3.0            # YOLO; pulls in torch, torchvision, numpy, pillow
+opencv-python>=4.9.0          # frame decoding for uploaded clips
+huggingface_hub>=0.23.0       # fetching pretrained fire/smoke weights
+
+# utilities
 pyyaml>=6.0
 python-dotenv>=1.0.0
 requests>=2.31.0
-huggingface_hub>=0.23.0  # downloading pretrained fire/smoke weights
