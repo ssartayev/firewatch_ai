@@ -1,20 +1,26 @@
-# Only web/ is deployed. Everything below is the engine, its dependencies and
-# the deck build inputs - none of it is served, and requirements.txt in
-# particular makes Vercel try to install torch, which is a 5.8 GB bundle.
-.venv/
+# Only web/ is served. Everything below is the engine, its dependencies and
+# the deck build inputs. requirements.txt above all: without excluding it
+# Vercel installs torch and the bundle hits 5.8 GB against a 250 MB limit.
+#
+# Every pattern is anchored with a leading slash. Without one, gitignore
+# syntax matches at ANY depth - so "static/" would also kill web/static/,
+# and "data/" would kill web/data/, which is exactly how the first deploy
+# shipped with no stylesheet and no simulation data.
+/.venv/
+/snapshots/
+/models/
+/data/
+/docs/
+/legacy/
+/app/
+/scripts/
+/templates/
+/static/
+/requirements.txt
+/deck/clips/
+/deck/stills/
+/deck/shots/
+/deck/fonts/
+/deck/.flat/
 __pycache__/
-snapshots/
-models/
-data/
-docs/
-legacy/
-app/
-scripts/
-templates/
-static/
-requirements.txt
-deck/clips/
-deck/stills/
-deck/shots/
-deck/fonts/
-deck/.flat/
+.DS_Store
